@@ -1,0 +1,13 @@
+# ===================================================================
+# tpRigToolkit-dccs-maya requirements file
+# ===================================================================
+
+pytest
+pytest-cov
+coveralls
+sphinx
+sphinx_rtd_theme
+tpPyUtils
+tpDccLib
+tpQtLib
+tpMayaLib

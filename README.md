@@ -1,1 +1,0 @@
-# tpRigToolkit-dccs-maya
