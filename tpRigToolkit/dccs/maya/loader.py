@@ -6,77 +6,45 @@ Initialization module for tpRigToolkit-dccs-maya
 """
 
 import os
-import inspect
 import logging.config
 
+# =================================================================================
 
-def init(do_reload=False, dev=False):
+PACKAGE = 'tpRigToolkit.dccs.maya'
+
+# =================================================================================
+
+
+def init(dev=False):
     """
     Initializes module
     """
 
-    logging.config.fileConfig(get_logging_config(), disable_existing_loggers=False)
+    from tpDcc.libs.python import importer
+    from tpRigToolkit.dccs.maya import register
 
-    from tpPyUtils import importer
+    logger = create_logger(dev=dev)
+    register.register_class('logger', logger)
 
-    class MayaDcc(importer.Importer, object):
-        def __init__(self, debug=False):
-            super(MayaDcc, self).__init__(module_name='tpRigToolkit.dccs.maya', debug=debug)
-
-        def get_module_path(self):
-            """
-            Returns path where tpNameIt module is stored
-            :return: str
-            """
-
-            try:
-                mod_dir = os.path.dirname(inspect.getframeinfo(inspect.currentframe()).filename)
-            except Exception:
-                try:
-                    mod_dir = os.path.dirname(__file__)
-                except Exception:
-                    return None
-
-            return mod_dir
-
-    packages_order = []
-
-    maya_lib = importer.init_importer(importer_class=MayaDcc, do_reload=False, debug=dev)
-    maya_lib.import_packages(order=packages_order, only_packages=False)
-    if do_reload:
-        maya_lib.reload_all()
-
-    create_logger_directory()
+    importer.init_importer(package=PACKAGE)
 
 
-def create_logger_directory():
+def create_logger(dev=False):
     """
-    Creates artellapipe-gui logger directory
+    Returns logger of current module
     """
 
-    logger_dir = os.path.normpath(os.path.join(os.path.expanduser('~'), 'tpRigToolkit', 'logs'))
-    if not os.path.isdir(logger_dir):
-        os.makedirs(logger_dir)
+    logger_directory = os.path.normpath(os.path.join(os.path.expanduser('~'), 'tpRigToolkit-dccs-maya', 'logs'))
+    if not os.path.isdir(logger_directory):
+        os.makedirs(logger_directory)
 
+    logging_config = os.path.normpath(os.path.join(os.path.dirname(__file__), '__logging__.ini'))
 
-def get_logging_config():
-    """
-    Returns logging configuration file path
-    :return: str
-    """
+    logging.config.fileConfig(logging_config, disable_existing_loggers=False)
+    logger = logging.getLogger('tpRigToolkit-dccs-maya')
+    if dev:
+        logger.setLevel(logging.DEBUG)
+        for handler in logger.handlers:
+            handler.setLevel(logging.DEBUG)
 
-    create_logger_directory()
-
-    return os.path.normpath(os.path.join(os.path.dirname(__file__), '__logging__.ini'))
-
-
-def get_logging_level():
-    """
-    Returns logging level to use
-    :return: str
-    """
-
-    if os.environ.get('TPRIGTOOLKIT_LIBS_MAYA_LOG_LEVEL', None):
-        return os.environ.get('TPRIGTOOLKIT_LIBS_MAYA_LOG_LEVEL')
-
-    return os.environ.get('TPRIGTOOLKIT_LIBS_MAYA_LOG_LEVEL', 'INFO')
+    return logger
