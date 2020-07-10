@@ -2,50 +2,47 @@
 # -*- coding: utf-8 -*-
 
 """
-Module that contains implementation for metarig modules for Maya
+Module that contains abstract implementation for tpRigTask rig components for Maya
 """
 
-from tpDcc.dccs.maya.meta import metanode, metautils
+from __future__ import print_function, division, absolute_import
+
+from tpDcc.dccs.maya.meta import metanode
 
 import tpRigToolkit
-from tpRigToolkit.dccs.maya.metarig.core import utils, mixin
+from tpRigToolkit.dccs.maya.metarig.core import mixin
 
 
-class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
+class RigComponent(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
     def __init__(self, *args, **kwargs):
-        super(RigModule, self).__init__(*args, **kwargs)
+        super(RigComponent, self).__init__(*args, **kwargs)
 
         if self.cached:
             return
 
         mixin.CoreMixin.__init__(self)
         mixin.ControlMixin.__init__(self)
-        self.set_name(kwargs.get('name', 'module'))
+        self.set_name(kwargs.get('name', 'component'))
 
     # ==============================================================================================
     # OVERRIDES
     # ==============================================================================================
 
-    def create(self, character_name, *args, **kwargs):
+    def create(self):
         """
-        Creates the rig module
-        This function should be extended in custom rig modules
-        This function only must be called once rig module setup is done
-        :param character_name: str
-        :param args:
-        :param kwargs:
+        Creates the rig component
+        This function should be extended in custom rig components
+        This function only must be called once rig component setup is done
         """
-
-        self.add_attribute('rig_type', 'module', attr_type='string', lock=True)
-
-        # We connect to character first to make sure that that naming attributes are initialized
-        self._connect_to_character(character_name)
 
         mixin.CoreMixin.create(self)
         mixin.ControlMixin.create(self)
 
-        self.controls_group.set_parent(self.character.controls_group)
-        self.setup_group.set_parent(self.character.setup_group)
+        self.add_attribute('rig_type', 'component', attr_type='string', lock=True)
+        rig_module = self.get_rig_module()
+        if rig_module:
+            self.controls_group.set_parent(rig_module.controls_group)
+            self.setup_group.set_parent(rig_module.setup_group)
 
     # ==============================================================================================
     # BASE
@@ -53,36 +50,29 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
 
     def get_parent(self):
         """
-        Returns the parent object of this object (character this component is attached to)
+        Returns the parent object of this object (module this component is attached to)
         """
 
-        return self.get_character()
+        return self.get_rig_module()
 
-    def get_character(self):
+    def connect_to_module(self, module):
         """
-        Returns the character linked to this module
-        :return:
+        Connects rig component to given RigModule
+        :param module: RigModule
         """
 
-        if not self.has_attr('character'):
-            tpRigToolkit.logger.warning('Rig module {} is not connected to a character!'.format(self.base_name))
+        module.add_component(self)
+
+    def get_rig_module(self):
+        """
+        Returns RigModule linked to this RigComponent
+        :return: RigModule
+        """
+
+        if not self.has_attr('rig_module'):
             return None
 
-        # TODO: Here se should check if the MetaNode is of type RigCharacter
-
-        return self.character
-
-    def get_character_name(self):
-        """
-        Returns the name of the character linked to this module
-        :return: str
-        """
-
-        character = self.get_character()
-        if not character:
-            return
-
-        return character.base_name
+        return self.rig_module
 
     def add_component(self, component):
         """
@@ -152,13 +142,34 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
     # INTERNAL
     # ==============================================================================================
 
-    def _connect_to_character(self, character_name):
+    def _check_joint(self, jnt):
         """
-        Connects rig module to its respective Character Node
+        Internal function used to check the validity of the given joints
+        :param jnt: list
         """
 
-        character = utils.get_character_module(character_name)
-        if not character:
-            character = utils.build_character(character_name)
+        if not jnt:
+            tpRigToolkit.logger.warning('No joint to check')
+            return False
 
-        character.append_module(self)
+        if not jnt or not jnt.node_type() == 'joint':
+            tpRigToolkit.logger.warning('Joint node: "{}" is not valid!'.format(jnt))
+            return False
+
+        return True
+
+    def _check_locator(self, loc):
+        """
+        Internal function used to check the validity of the given locators
+        :param loc: list
+        """
+
+        if not loc:
+            tpRigToolkit.logger.warning('No locator to check')
+            return False
+
+        if not loc or not loc.node_type() == 'transform':
+            tpRigToolkit.logger.warning('Locator node: "{}" is not valid!'.format(loc))
+            return False
+
+        return True

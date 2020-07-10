@@ -9,13 +9,15 @@ def get_character_module(character_name):
     :return: str
     """
 
+    from tpRigToolkit.dccs.maya.metarig.core import character
+
     modules = maya.cmds.ls(type='network')
     for module in modules:
         attrs = maya.cmds.listAttr(module)
         if 'meta_class' in attrs and 'meta_node_id' in attrs:
             meta_class = maya.cmds.getAttr('{}.meta_class'.format(module))
             module_name = maya.cmds.getAttr('{}.meta_node_id'.format(module))
-            if meta_class == 'RigCharacter' and module_name == character_name:
+            if meta_class == character.RigCharacter.__name__ and module_name == character_name:
                 return metanode.validate_obj_arg(module, 'RigCharacter')
 
     return None

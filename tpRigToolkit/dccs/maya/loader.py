@@ -21,12 +21,16 @@ def init(dev=False):
     """
 
     from tpDcc.libs.python import importer
+    from tpDcc.dccs.maya import loader
     from tpRigToolkit.dccs.maya import register
 
     logger = create_logger(dev=dev)
     register.register_class('logger', logger)
 
     importer.init_importer(package=PACKAGE)
+
+    # We update the registered meta classes
+    loader.create_metadata_manager()
 
 
 def create_logger(dev=False):
