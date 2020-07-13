@@ -54,7 +54,7 @@ class GroundRig(module.RigModule, object):
 
         ground_joint = metanode.validate_obj_arg(self.ground_joint_name, 'MetaObject', update_class=True)
 
-        joint_component = joint.JointRig(name='groundJoint')
+        joint_component = joint.JointComponent(name='groundJoint')
         self.add_component(joint_component)
         joint_component.add_joints(ground_joint)
         joint_component.create()

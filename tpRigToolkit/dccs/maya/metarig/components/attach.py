@@ -15,13 +15,13 @@ import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import component
 
 
-class AttachJoints(component.RigComponent, object):
+class AttachJointsComponent(component.RigComponent, object):
 
     ATTACH_TYPE_CONSTRAINT = joint_utils.AttachJoints.AttachType.CONSTRAINT
     ATTACH_TYPE_MATRIX = joint_utils.AttachJoints.AttachType.MATRIX
 
     def __init__(self, *args, **kwargs):
-        super(AttachJoints, self).__init__(*args, **kwargs)
+        super(AttachJointsComponent, self).__init__(*args, **kwargs)
 
         if self.cached:
             return
@@ -38,7 +38,7 @@ class AttachJoints(component.RigComponent, object):
     # ==============================================================================================
 
     def create(self):
-        super(AttachJoints, self).create()
+        super(AttachJointsComponent, self).create()
 
         self.attach()
 

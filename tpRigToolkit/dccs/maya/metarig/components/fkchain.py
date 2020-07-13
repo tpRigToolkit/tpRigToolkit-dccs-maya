@@ -2,21 +2,22 @@
 # -*- coding: utf-8 -*-
 
 """
-Module that contains FK chain rig metarig implementations for Maya
+Module that contains base FK chain rig metarig implementation for Maya
 """
 
 from __future__ import print_function, division, absolute_import
 
 import tpDcc as tp
+import tpDcc.dccs.maya as maya
 
 import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.components import buffer
 
 
-class FkRig(buffer.BufferRig, object):
+class FkChainComponent(buffer.BufferComponent, object):
 
     def __init__(self, *args, **kwargs):
-        super(FkRig, self).__init__(*args, **kwargs)
+        super(FkChainComponent, self).__init__(*args, **kwargs)
 
         if self.cached:
             return
@@ -31,7 +32,7 @@ class FkRig(buffer.BufferRig, object):
     # ==============================================================================================
 
     def create(self):
-        super(FkRig, self).create()
+        super(FkChainComponent, self).create()
 
         self._setup()
 
@@ -90,6 +91,16 @@ class FkRig(buffer.BufferRig, object):
         else:
             self.increment_offset_rotation[increment] = rotation_vector
 
+    def set_transforms(self, transforms, clean=False):
+        if not self.message_list_get('transforms', as_meta=False):
+            self.message_list_connect('transforms', transforms)
+        else:
+
+            if clean:
+                self.message_list_purge('transforms')
+            for xform in transforms:
+                self.message_list_append('transforms', xform)
+
     # ==============================================================================================
     # INTERNAL
     # ==============================================================================================
@@ -120,8 +131,10 @@ class FkRig(buffer.BufferRig, object):
                 new_control.add_sub_control(sub_control)
                 if i == 0:
                     sub_control.set_parent(new_control)
+                    maya.cmds.controller(sub_control.meta_node, new_control.meta_node, p=True)
                 else:
                     sub_control.set_parent(new_control.get_sub_controls()[-2])      # index -1 it the control itself
+                    maya.cmds.controller(sub_control.meta_node, new_control.get_sub_controls()[-2].meta_node, p=True)
 
         return new_control
 
@@ -132,6 +145,8 @@ class FkRig(buffer.BufferRig, object):
 
         if self.create_sub_controls:
             control = self.get_controls()[-1]
+
+        self._create_before_attach_joints()
 
         xform = control.top()
         if xform:
@@ -181,6 +196,7 @@ class FkRig(buffer.BufferRig, object):
             self._setup_increment(fk_ctrl, transforms, current_increment)
 
     def _setup_increment(self, ctrl, transform_list, increment):
+        self.set_transforms(transform_list, clean=True)
         current_transform = transform_list[increment]
         self._setup_all_controls(ctrl, current_transform, increment)
         if increment == 0:
@@ -245,16 +261,11 @@ class FkRig(buffer.BufferRig, object):
         :param current_transform: str, transform linked to the given Fk chain control
         """
 
-        rig_module = self.get_rig_module()
-        if not rig_module:
-            tpRigToolkit.logger.warning('RigComponent {} is not connected to a RigModule!'.format(self.base_name))
-            return
-
         self._attach(control, current_transform.meta_node, current_increment)
 
         controls = self.get_controls(as_meta=True)
 
-        if rig_module.create_sub_controls:
+        if self.create_sub_controls:
             parent_ctrl = controls[current_increment - 1].get_sub_controls()[-1]
         else:
             parent_ctrl = controls[current_increment - 1]
@@ -292,6 +303,14 @@ class FkRig(buffer.BufferRig, object):
         This function can be override to implement custom FK chain behaviours
         :param control: str, name of the control in the FK chain
         :param current_transform: str, transform linked to the given Fk chain control
+        """
+
+        pass
+
+    def _create_before_attach_joints(self):
+        """
+        Internal function that is called before attaching FK joints
+        Override in inherited classes
         """
 
         pass

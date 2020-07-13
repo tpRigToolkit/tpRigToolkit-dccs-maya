@@ -14,9 +14,9 @@ import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.components import joint, attach
 
 
-class BufferRig(joint.JointRig, object):
+class BufferComponent(joint.JointComponent, object):
     def __init__(self, *args, **kwargs):
-        super(BufferRig, self).__init__(*args, **kwargs)
+        super(BufferComponent, self).__init__(*args, **kwargs)
 
         if self.cached:
             return
@@ -24,7 +24,7 @@ class BufferRig(joint.JointRig, object):
         self.set_attach_joints(True)
         self.set_build_hierarchy(False)
         self.set_create_buffer_joints(True, name_for_switch_attribute='switch')
-        self.set_attach_type(attach.AttachJoints.ATTACH_TYPE_CONSTRAINT)
+        self.set_attach_type(attach.AttachJointsComponent.ATTACH_TYPE_CONSTRAINT)
         self.set_buffer_replace(['jnt', 'buffer'])
 
     # ==============================================================================================
@@ -32,13 +32,13 @@ class BufferRig(joint.JointRig, object):
     # ==============================================================================================
 
     def create(self):
-        super(BufferRig, self).create()
+        super(BufferComponent, self).create()
 
         if self.create_buffer_joints:
             buffer_joints = self._duplicate_joints()
             joints = self.get_joints(as_meta=False)
 
-            attach_component = attach.AttachJoints(name='{}Attach'.format(self.name))
+            attach_component = attach.AttachJointsComponent(name='{}Attach'.format(self.name))
             attach_component.set_attach_joints(True)
             attach_component.set_source_and_target_joints(source_joints=buffer_joints, target_joints=joints)
             self.add_component(attach_component)

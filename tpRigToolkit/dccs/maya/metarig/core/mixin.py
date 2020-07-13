@@ -8,6 +8,7 @@ Module that contains mixin classes to compose functionality in different compone
 from __future__ import print_function, division, absolute_import
 
 import tpDcc as tp
+from tpDcc.libs.python import python
 from tpDcc.dccs.maya.core import attribute as attr_utils, node as node_utils
 from tpDcc.dccs.maya.meta import metaobject, metautils
 
@@ -21,6 +22,9 @@ class CoreMixin(object):
     """
 
     def __init__(self):
+
+        super(CoreMixin, self).__init__()
+
         self.set_name('')
         self.set_side('center')
         self.set_scalable(False)
@@ -226,6 +230,13 @@ class CoreMixin(object):
         return tpRigToolkit.NamesMgr().solve_name(
             side=self.side, naming_file=naming_file, rule_name=naming_rule, *args, **kwargs)
 
+    def _prepare_attribute(self, attribute_name):
+        """
+        Internal function that makes sure that given attribute is ready to be set
+        If the attribute is connected, the connection is removed
+        """
+        metautils.MetaAttributeUtils.break_connection((self, attribute_name))
+
     def _post_create_group(self, new_group):
         """
         Internal callback function that is called after a rig module group is created
@@ -241,6 +252,8 @@ class ControlMixin(object):
         # We do not set a default control color. If we do it, we force the control color to be this one
         # and if would ignore the control data color.
         # self.set_control_color([1.0, 1.0, 1.0])
+
+        super(ControlMixin, self).__init__()
 
         self.set_create_sub_controls(False)
         self.set_hide_sub_controls_translate(False)
@@ -389,6 +402,7 @@ class ControlMixin(object):
         if not self.has_attr('controls_file'):
             self.add_attribute(attr='controls_file', value=file_path, attr_type='string')
         else:
+            self._prepare_attribute('controls_file')
             self.controls_file = file_path
 
     def set_create_sub_controls(self, flag):
@@ -400,6 +414,7 @@ class ControlMixin(object):
         if not self.has_attr('create_sub_controls'):
             self.add_attribute(attr='create_sub_controls', value=flag)
         else:
+            self._prepare_attribute('create_sub_controls')
             self.create_sub_controls = flag
 
     def set_controls_group_name(self, new_name='controls'):
@@ -412,6 +427,7 @@ class ControlMixin(object):
         if not self.has_attr('controls_group_name'):
             self.add_attribute(attr='controls_group_name', value=new_name, lock=True)
         else:
+            self._prepare_attribute('controls_group_name')
             self.controls_group_name = new_name
 
     def set_control_size(self, size):
@@ -434,6 +450,7 @@ class ControlMixin(object):
         if not self.has_attr('sub_control_size'):
             self.add_attribute(attr='sub_control_size', value=size)
         else:
+            self._prepare_attribute('sub_control_size')
             self.sub_control_size = size
 
     def set_control_data(self, control_dict):
@@ -445,6 +462,7 @@ class ControlMixin(object):
         if not self.has_attr('control_data'):
             self.add_attribute(attr='control_data', value=control_dict)
         else:
+            self._prepare_attribute('control_data')
             self.control_data = control_dict
 
     def set_hide_sub_controls_translate(self, flag):
@@ -456,6 +474,7 @@ class ControlMixin(object):
         if not self.has_attr('hide_sub_controls_translate'):
             self.add_attribute(attr='hide_sub_controls_translate', value=flag)
         else:
+            self._prepare_attribute('hide_sub_controls_translate')
             self.hide_sub_controls_translate = flag
 
     def set_sub_visibility(self, flag):
@@ -467,6 +486,7 @@ class ControlMixin(object):
         if not self.has_attr('sub_visibility'):
             self.add_attribute(attr='sub_visibility', value=flag)
         else:
+            self._prepare_attribute('sub_visibility')
             self.sub_visibility = flag
 
     def set_control_shape(self, shape_name):
@@ -478,6 +498,7 @@ class ControlMixin(object):
         if not self.has_attr('control_shape'):
             self.add_attribute(attr='control_shape', value=shape_name, attr_type='string')
         else:
+            self._prepare_attribute('control_shape')
             self.control_shape = shape_name
 
     def set_sub_control_shape(self, shape_name):
@@ -489,6 +510,7 @@ class ControlMixin(object):
         if not self.has_attr('sub_control_shape'):
             self.add_attribute(attr='sub_control_shape', value=shape_name, attr_type='string')
         else:
+            self._prepare_attribute('sub_control_shape')
             self.sub_control_shape = shape_name
 
     def set_control_offset_axis(self, axis_letter):
@@ -503,6 +525,7 @@ class ControlMixin(object):
         if not self.has_attr('control_offset_axis'):
             self.add_attribute('control_offset_axis', value=axis_letter.lower(), attr_type='string')
         else:
+            self._prepare_attribute('control_offset_axis')
             self.control_offset_axis = axis_letter.lower()
 
     def set_control_color(self, color):
@@ -515,6 +538,7 @@ class ControlMixin(object):
         if not self.has_attr('control_color'):
             self.add_attribute('control_color', value=color, attr_type='double3')
         else:
+            self._prepare_attribute('control_color')
             self.control_color = color
 
     def set_use_side_color(self, flag):
@@ -526,6 +550,7 @@ class ControlMixin(object):
         if not self.has_attr('use_side_color'):
             self.add_attribute('use_side_color', value=flag, attr_type='bool')
         else:
+            self._prepare_attribute('use_side_color')
             self.use_side_color = flag
 
     def create_control(self, name=None, sub=False, connect_to_module=True, *args, **kwargs):
@@ -555,7 +580,14 @@ class ControlMixin(object):
         new_ctrl.set_control_side(self.side)
         new_ctrl.set_control_size(control_size)
 
+        # For controls, we use the following color
+        # 1) If use side color is on, we use that color
+        # 2) If control data defines a color we use that color
+        # 3) If control defines a color we use that color
+
         control_color = self.control_color if self.has_attr('control_color') else None
+        if control_data and 'color' in control_data and control_data['color']:
+            control_color = control_data['color']
         if self.use_side_color:
             if sub and root_module.has_attr('sub_control_side_colors'):
                 control_color = root_module.sub_control_side_colors.get(self.side, None)
@@ -703,3 +735,80 @@ class ControlMixin(object):
         shapes = sub_ctrl.get_shapes()
         for shp in shapes:
             attr_utils.connect_visibility(main_vis_attr, shp, self.sub_visibility)
+
+
+class JointMixin(object):
+    def __init__(self):
+        super(JointMixin, self).__init__()
+
+        # ==============================================================================================
+        # BASE
+        # ==============================================================================================
+
+    def has_joints(self):
+        """
+        Returns whether the RigJoint module has added joints or not
+        :return: bool
+        """
+
+        if not self.message_list_get('joints', as_meta=False):
+            return False
+
+        return True
+
+    def get_joints(self, as_meta=True):
+        """
+        Returns list of joints of the module
+        :return: list<MetaObject>
+        """
+
+        return self.message_list_get('joints', as_meta=as_meta)
+
+    def add_joints(self, joints, clean=False):
+        """
+        Appends new joints to the module
+        :param joints: list<variant>
+        """
+
+        if not joints:
+            return
+
+        joints = python.force_list(joints)
+
+        valid_joints = list()
+        for jnt in joints:
+            valid_jnt = self._check_joint(jnt)
+            if valid_jnt:
+                valid_joints.append(jnt)
+
+        if len(valid_joints) <= 0:
+            return
+
+        if not self.message_list_get('joints', as_meta=False):
+            self.message_list_connect('joints', valid_joints)
+        else:
+            if clean:
+                self.message_list_purge('joints')
+            for jnt in valid_joints:
+                self.message_list_append('joints', jnt)
+
+        # ==============================================================================================
+        # INTERNAL
+        # ==============================================================================================
+
+    def _check_joint(self, jnt):
+        """
+        Internal function used to check the validity of the given joints
+        :param jnt: list
+        """
+
+        if not jnt:
+            tpRigToolkit.logger.warning('No joint to check')
+            return False
+
+        if not jnt or not jnt.node_type() == 'joint':
+            tpRigToolkit.logger.warning('Joint: "{}" is not valid!'.format(jnt))
+            return False
+
+        return True
+

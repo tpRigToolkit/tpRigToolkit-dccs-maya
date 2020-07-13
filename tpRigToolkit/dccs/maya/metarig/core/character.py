@@ -224,100 +224,19 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         else:
             self.message_list_append('rig_modules', rig_module, 'character')
 
-        # # If we define a naming/controls file in the module character, we override module file path
+        # If we define a naming/controls file in the module character, we override module file path
         if rig_module.has_attr('scalable'):
-            rig_module.set_scalable(self.scalable)
             metautils.MetaAttributeUtils.connect((self, 'scalable'), (rig_module, 'scalable'), lock=True)
         if rig_module.has_attr('naming_file'):
-            rig_module.set_naming_file(self.naming_file)
             metautils.MetaAttributeUtils.connect((self, 'naming_file'), (rig_module, 'naming_file'), lock=True)
         if rig_module.has_attr('naming_rule'):
-            rig_module.set_naming_rule(self.naming_rule)
             metautils.MetaAttributeUtils.connect((self, 'naming_rule'), (rig_module, 'naming_rule'), lock=True)
         if rig_module.has_attr('controls_file'):
-            rig_module.set_controls_file(self.controls_file)
             metautils.MetaAttributeUtils.connect((self, 'controls_file'), (rig_module, 'controls_file'), lock=True)
         if rig_module.has_attr('control_size'):
-            rig_module.set_control_size(self.control_size)
             metautils.MetaAttributeUtils.connect((self, 'control_size'), (rig_module, 'control_size'), lock=True)
         if rig_module.has_attr('sub_visibility'):
-            rig_module.set_sub_visibility(self.sub_visibility)
             metautils.MetaAttributeUtils.connect((self, 'sub_visibility'), (rig_module, 'sub_visibility'), lock=True)
         if rig_module.has_attr('sub_control_size'):
-            rig_module.set_sub_control_size(self.sub_control_size)
             metautils.MetaAttributeUtils.connect(
                 (self, 'sub_control_size'), (rig_module, 'sub_control_size'), lock=True)
-
-    def add_component(self, component):
-        """
-        Adds a new rig component to the rig module
-        :param component: RigComponent
-        """
-
-        if not self.message_list_get('components', as_meta=False):
-            self.message_list_connect('components', [component], 'rig_module')
-        else:
-            self.message_list_append('components', component, 'rig_module')
-
-        cmp_components = component.get_components()
-        if cmp_components:
-            for component in cmp_components:
-                component.message_list_connect('rig_module', self)
-
-        self.connect_naming_attributes(component)
-
-        component.set_scalable(self.scalable)
-        metautils.MetaAttributeUtils.connect((self, 'scalable'), (component, 'scalable'), lock=True)
-        component.set_controls_file(self.controls_file)
-        metautils.MetaAttributeUtils.connect((self, 'controls_file'), (component, 'controls_file'), lock=True)
-        component.set_control_size(self.control_size)
-        metautils.MetaAttributeUtils.connect((self, 'control_size'), (component, 'control_size'), lock=True)
-        component.set_sub_control_size(self.sub_control_size)
-        metautils.MetaAttributeUtils.connect((self, 'sub_control_size'), (component, 'sub_control_size'), lock=True)
-        component.set_sub_visibility(self.sub_visibility)
-        metautils.MetaAttributeUtils.connect((self, 'sub_visibility'), (component, 'sub_visibility'), lock=True)
-
-    def get_components(self, as_meta=True):
-        """
-        Returns a list of components attached to this rig module
-        :param as_meta: bool
-        """
-
-        if not self.message_list_get('components', as_meta=False):
-            return list()
-
-        return self.message_list_get('components', as_meta=as_meta)
-
-    def get_component_by_class(self, component_class, as_meta=True):
-        """
-        Returns component of given class
-        :param component_class: str
-        :param as_meta: bool
-        :return: RigComponent
-        """
-
-        if not self.has_component(component_class):
-            return None
-
-        for component in self.get_components(as_meta=True):
-            if component.__class__ == component_class:
-                if as_meta:
-                    return component
-                else:
-                    return component.meta_node
-        return None
-
-    def has_component(self, component_class):
-        """
-        Implements RigTaskModule has_component() function
-        Checks if RigModule has a component of the given class attached to it
-        :param component_class:
-        :return:
-        """
-
-        rig_components = self.get_components()
-        for component in rig_components:
-            if component.__class__ == component_class:
-                return True
-
-        return False
