@@ -51,6 +51,8 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
         buffer_rig = buffer.BufferComponent(name='spineSplineIkBuffer')
         self.add_component(buffer_rig)
         buffer_rig.add_joints(self.get_joints())
+        buffer_rig.set_create_buffer_joints(
+            self.create_buffer_joints, self.switch_attribute_name, self.switch_node_name)
         buffer_rig.set_create_sub_controls(False)
         buffer_rig.create()
 
@@ -71,6 +73,7 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
             spline_ik_rig.add_joints(buffer_rig.get_buffer_joints())
             spline_ik_rig.set_curve(self.curve)
             spline_ik_rig.set_control_count(self.control_count)
+            self.set_advanced_twist(self.advanced_twist)
             spline_ik_rig.create()
             handlers = spline_ik_rig.get_marker_joints(as_meta=True)
 
@@ -78,6 +81,10 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
         fk_rig = SplineIkChainFkComponent(name='spineSplineIkChainFk')
         self.add_component(fk_rig)
         fk_rig.add_joints(self.get_joints())
+        self.set_create_sub_controls(self.create_sub_controls)
+        self.set_match_to_rotation(self.match_to_rotation)
+        self.set_control_size(self.control_size)
+        self.set_control_data(self.control_data)
         fk_rig.set_buffer_joints(buffer_rig.get_buffer_joints())
         fk_rig.set_handlers(handlers)
         fk_rig.create()

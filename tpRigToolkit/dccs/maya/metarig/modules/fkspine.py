@@ -53,6 +53,8 @@ class FkSpineRig(module.RigModule, mixin.JointMixin):
             self.add_component(fk_curl)
             fk_curl.set_curl_controls(self.get_controls())
             fk_curl.create()
+            fk_curl.delete_setup()
+            fk_curl.delete_control()
 
     # ==============================================================================================
     # BASE

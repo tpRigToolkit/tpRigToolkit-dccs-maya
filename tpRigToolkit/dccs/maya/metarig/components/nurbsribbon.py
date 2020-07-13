@@ -37,6 +37,8 @@ class NurbsRibbon(joint.JointComponent, object):
         Creates Ribbon
         """
 
+        super(NurbsRibbon, self).create()
+
         self._create_surface(self.control_count - 1)
         self._create_clusters()
 
@@ -171,7 +173,7 @@ class NurbsRibbon(joint.JointComponent, object):
         :param span_count: int, number of spans for the ribbon surface
         """
 
-        surface_name = self._get_name(self.name, type='geometry')
+        surface_name = self._get_name(self.name, 'nurbsRibbonSurface', node_type='geometry')
         surface = geo_utils.transforms_to_nurbs_surface(
             transforms=self.get_joints(as_meta=False),
             name=surface_name,
@@ -187,40 +189,35 @@ class NurbsRibbon(joint.JointComponent, object):
 
     def _create_clusters(self):
         """
-        Internal function that creates the clusters used by the NURBS ribbon setup
+        Internal function that creates the clusters used by the Nurbs ribbon setup
         :return:
         """
 
-        if self.has_attr('cluster_surface'):
+        # TODO: If cluster handlers already exist we should be able to remove them and recreate them
+        if self.has_attr('cluster_handles'):
             return
 
-        cluster_name = self._get_name(self.name, type='cluster')
-
-        cluster_surface = deform_utils.ClusterSurface(geometry=self.surface.meta_node, name=cluster_name)
-
+        cluster_name = self._get_name(self.name, 'nurbsRibbon', node_type='cluster')
         last_pivot_end = True if self.last_pivot_top_value else False
 
+        cluster_surface = deform_utils.ClusterSurface(geometry=self.surface.meta_node, name=cluster_name)
         cluster_surface.set_first_cluster_pivot_at_start(True)
         cluster_surface.set_last_cluster_pivot_at_end(last_pivot_end)
         cluster_surface.set_join_ends(True)
         cluster_surface.create()
 
-        if not self.has_attr('cluster_surface'):
-            self.add_attribute(attr='cluster_surface', value=cluster_surface, attr_type='messageSimple')
+        cluster_handles = cluster_surface.get_cluster_handle_list()
+        handles = [metanode.validate_obj_arg(handle, 'MetaObject', update_class=True) for handle in cluster_handles]
 
-        clusters = self.cluster_surface.get_clusters(as_meta=True)
-        cluster_grp = self.create_setup_group('clusters')
-        cluster_surface.set_clusters_group(cluster_grp)
-
-        if not self.message_list_get('clusters', as_meta=False):
-            self.message_list_connect('clusters', clusters)
+        if not self.message_list_get('cluster_handles', as_meta=False):
+            self.message_list_connect('cluster_handles', handles)
         else:
-            self.message_list_purge('clusters')
-            for cluster in clusters:
-                self.message_list_append('clusters', cluster)
+            self.message_list_purge('cluster_handles')
+            for handle in handles:
+                self.message_list_append('cluster_handles', handle)
 
-        for cluster in clusters:
-            cluster.set_parent(cluster_grp)
+        for handle in handles:
+            handle.set_parent(self.setup_group)
 
-        return clusters
+        return handles
 
