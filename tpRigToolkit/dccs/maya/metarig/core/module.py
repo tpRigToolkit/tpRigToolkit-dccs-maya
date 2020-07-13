@@ -5,10 +5,10 @@
 Module that contains implementation for metarig modules for Maya
 """
 
-from tpDcc.dccs.maya.meta import metanode, metautils
+from tpDcc.dccs.maya.meta import metanode
 
 import tpRigToolkit
-from tpRigToolkit.dccs.maya.metarig.core import utils, mixin
+from tpRigToolkit.dccs.maya.metarig.core import mixin
 
 
 class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
@@ -26,20 +26,16 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
     # OVERRIDES
     # ==============================================================================================
 
-    def create(self, character_name, *args, **kwargs):
+    def create(self, *args, **kwargs):
         """
         Creates the rig module
         This function should be extended in custom rig modules
         This function only must be called once rig module setup is done
-        :param character_name: str
         :param args:
         :param kwargs:
         """
 
         self.add_attribute('rig_type', 'module', attr_type='string', lock=True)
-
-        # We connect to character first to make sure that that naming attributes are initialized
-        self._connect_to_character(character_name)
 
         mixin.CoreMixin.create(self)
         mixin.ControlMixin.create(self)
@@ -71,6 +67,14 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
         # TODO: Here se should check if the MetaNode is of type RigCharacter
 
         return self.character
+
+    def set_character(self, character):
+        """
+        Sets the character of this module
+        :param character:
+        """
+
+        character.append_module(self)
 
     def get_character_name(self):
         """
@@ -147,18 +151,3 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
                 return True
 
         return False
-
-    # ==============================================================================================
-    # INTERNAL
-    # ==============================================================================================
-
-    def _connect_to_character(self, character_name):
-        """
-        Connects rig module to its respective Character Node
-        """
-
-        character = utils.get_character_module(character_name)
-        if not character:
-            character = utils.build_character(character_name)
-
-        character.append_module(self)

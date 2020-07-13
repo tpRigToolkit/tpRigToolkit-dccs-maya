@@ -439,6 +439,7 @@ class ControlMixin(object):
         if not self.has_attr('control_size'):
             self.add_attribute(attr='control_size', value=size)
         else:
+            self._prepare_attribute('control_size')
             self.control_size = size
 
     def set_sub_control_size(self, size):
@@ -574,8 +575,9 @@ class ControlMixin(object):
         if 'control_name' in control_data:
             control_type = control_data['control_name']
 
+        node_base_name = tp.Dcc.node_short_name(self.base_name)
         node_type = 'subControl' if sub else 'control'
-        new_ctrl = control.RigControl(name=self._get_name(self.base_name, name, node_type=node_type, *args, **kwargs))
+        new_ctrl = control.RigControl(name=self._get_name(node_base_name, name, node_type=node_type, *args, **kwargs))
         new_ctrl.set_name(name)
         new_ctrl.set_control_side(self.side)
         new_ctrl.set_control_size(control_size)
@@ -609,8 +611,8 @@ class ControlMixin(object):
         # TODO: the final scale will be SUPER small. This should be done in a place where we know the total amount
         # TODO: of sub controls we want to create.
         scale_to_apply = None
-        if sub and 'id' in kwargs:
-            i = kwargs['id']
+        if sub and 'sub_id' in kwargs:
+            i = kwargs['sub_id']
             if i > 0:
                 scale_factor = 0.1 * i
                 scale_to_apply = 1.0 - scale_factor

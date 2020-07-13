@@ -520,7 +520,7 @@ class RigControl(metaobject.MetaObject, object):
         data = controls_lib.get_control_data_by_name(curve_type)
 
         size = control_data.pop('size', 1.0)
-        name = control_data.pop('name', 'temp_ctrl')
+        name = control_data.pop('name', 'tempControl')
         shape_parent = control_data.pop('shape_parent', True)
 
         data_color = control_data.pop('color', [1.0, 1.0, 1.0])

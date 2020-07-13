@@ -23,8 +23,8 @@ class RootRig(module.RigModule, mixin.JointMixin):
     # OVERRIDES
     # ==============================================================================================
 
-    def create(self, character_name, *args, **kwargs):
-        super(RootRig, self).create(character_name, *args, **kwargs)
+    def create(self, *args, **kwargs):
+        super(RootRig, self).create(*args, **kwargs)
 
         fk_rig = fkchain.FkChainComponent(name='rootFkChain')
         self.add_component(fk_rig)
@@ -32,7 +32,7 @@ class RootRig(module.RigModule, mixin.JointMixin):
         fk_rig.add_joints(self.get_joints())
         if self.has_attr('control_data') and self.control_data:
             fk_rig.set_control_data(self.control_data)
-        fk_rig.set_create_sub_controls(True)
+        fk_rig.set_create_sub_controls(self.create_sub_controls)
         fk_rig.set_hide_sub_controls_translate(False)
         fk_rig.create()
 

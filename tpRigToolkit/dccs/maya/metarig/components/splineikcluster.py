@@ -3,6 +3,8 @@
 
 """
 Module that contains rig component to create SplineIK setup
+
+This Spline Ik setup uses clusters
 """
 
 from __future__ import print_function, division, absolute_import
@@ -17,20 +19,20 @@ import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.components import attach, joint
 
 
-class SplineIkRibbon(joint.JointComponent, object):
+class SplineIkCluster(joint.JointComponent, object):
     def __init__(self, *args, **kwargs):
-        super(SplineIkRibbon, self).__init__(*args, **kwargs)
+        super(SplineIkCluster, self).__init__(*args, **kwargs)
 
         if self.cached:
             return
 
-        self.set_name(kwargs.get('name', 'splineIkRibbon'))
+        self.set_name(kwargs.get('name', 'splineIkCluster'))
         self.set_control_count(2)
         self.set_span_count(2)
+        self.set_orig_curve(None)
         self.set_curve(None)
         self.set_ik_handle(None)
         self.set_ik_curve(None)
-        self.set_orig_curve(None)
         self.set_start_locator(None)
         self.set_end_locator(None)
         self.set_stretch_control(None)
@@ -51,11 +53,11 @@ class SplineIkRibbon(joint.JointComponent, object):
         Creates Ribbon
         """
 
-        super(SplineIkRibbon, self).create()
+        super(SplineIkCluster, self).create()
 
         self._create_curve(self.control_count - 1)
         self._create_clusters()
-        self._attach_to_geo()
+        self._create_spline_ik()
         # self._setup_stretchy()
 
     # ==============================================================================================
@@ -72,6 +74,17 @@ class SplineIkRibbon(joint.JointComponent, object):
             self.add_attribute(attr='control_count', value=value)
         else:
             self.control_count = value
+
+    def set_span_count(self, span_count):
+        """
+        Sets the number of spans the Spline IK curve/Ribbon surface should have
+        :param span_count: int
+        """
+
+        if not self.has_attr('span_count'):
+            self.add_attribute(attr='span_count', value=span_count)
+        else:
+            self.span_count = span_count
 
     def set_advanced_twist(self, flag):
         """
@@ -211,17 +224,6 @@ class SplineIkRibbon(joint.JointComponent, object):
         else:
             self.ik_curve = ik_curve
 
-    def set_span_count(self, span_count):
-        """
-        Sets the number of spans the Spline IK curve/Ribbon surface should have
-        :param span_count: int
-        """
-
-        if not self.has_attr('span_count'):
-            self.add_attribute(attr='span_count', value=span_count)
-        else:
-            self.span_count = span_count
-
     def set_last_pivot_top_value(self, flag):
         """
         Sets the last pivot on the curve to the top of the curve
@@ -312,10 +314,15 @@ class SplineIkRibbon(joint.JointComponent, object):
         self.curve.set_parent(self.setup_group)
 
     def _create_clusters(self):
-        if self.has_attr('cluster_curve'):
+        """
+        Internal function that creates the cluster that deform the curve of the spline ik setup
+        """
+
+        # TODO: If cluster handlers already exist we should be able to remove them and recreate them
+        if self.has_attr('cluster_handles'):
             return
 
-        cluster_name = self._get_name(self.name, 'ribbonCluster', node_type='cluster')
+        cluster_name = self._get_name(self.name, 'splineIkCluster', node_type='cluster')
         last_pivot_end = True if self.last_pivot_top_value else False
 
         cluster_curve = deform_utils.ClusterCurve(geometry=self.curve.meta_node, name=cluster_name)
@@ -323,9 +330,6 @@ class SplineIkRibbon(joint.JointComponent, object):
         cluster_curve.set_last_cluster_pivot_at_end(last_pivot_end)
         cluster_curve.set_join_ends(True)
         cluster_curve.create()
-
-        if not self.has_attr('cluster_curve'):
-            self.add_attribute(attr='cluster_curve', value=cluster_curve, attr_type='messageSimple')
 
         cluster_handles = cluster_curve.get_cluster_handle_list()
         handles = [metanode.validate_obj_arg(handle, 'MetaObject', update_class=True) for handle in cluster_handles]
@@ -341,9 +345,6 @@ class SplineIkRibbon(joint.JointComponent, object):
             handle.set_parent(self.setup_group)
 
         return handles
-
-    def _attach_to_geo(self):
-        self._create_spline_ik()
 
     def _setup_stretchy(self):
         rig_module = self.get_rig_module()
@@ -369,6 +370,10 @@ class SplineIkRibbon(joint.JointComponent, object):
         )
 
     def _create_spline_ik(self):
+        """
+        Internal function that creates Spline Ik setup
+        """
+
         self._wire_hires(self.curve)
 
         joints = self.get_joints(as_meta=False)
@@ -414,9 +419,11 @@ class SplineIkRibbon(joint.JointComponent, object):
             match = xform_utils.MatchTransform(joints[-1], end_locator)
             match.translation_rotation()
 
+            # TODO: If we change forward axis different to X in our original chain this will not work
+            # TODO: The same if we change the up axis (by default its Y)
             ik_handle = self.ik_handle[0]
-            tp.Dcc.set_attribute_value(ik_handle, 'dTwistControlEnable', 1)
-            tp.Dcc.set_attribute_value(ik_handle, 'dWorldUpType', 4)
+            tp.Dcc.set_attribute_value(ik_handle, 'dTwistControlEnable', True)
+            tp.Dcc.set_attribute_value(ik_handle, 'dWorldUpType', 4)    # Object Rotation Up (Start/End)
             tp.Dcc.connect_attribute(start_locator, 'worldMatrix', ik_handle, 'dWorldUpMatrix')
             tp.Dcc.connect_attribute(end_locator, 'worldMatrix', ik_handle, 'dWorldUpMatrixEnd')
 

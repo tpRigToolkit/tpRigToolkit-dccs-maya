@@ -105,24 +105,32 @@ class FkChainComponent(buffer.BufferComponent, object):
     # INTERNAL
     # ==============================================================================================
 
-    def _create_control(self, sub=False, id=0):
+    def _create_control(self, sub=False, id=0, name=None, **kwargs):
         """
         Internal function that creates a new control for the FK chain
         :param sub: bool
         :param id: int
         """
 
-        new_control = self.create_control(name='fkChain', id=id, sub=sub)
+        control_name = name or 'fkChain'
+        sub_id = kwargs.pop('sub_id', None)
+        if sub_id is not None:
+            new_control = self.create_control(name=control_name, id=id, sub=sub, sub_id=sub_id)
+        else:
+            new_control = self.create_control(name=control_name, id=id, sub=sub)
 
-        if len(self.get_controls(as_meta=False)) == 1:
-            new_control.set_parent(self.get_controls_group())
+        self._set_control_attributes(new_control)
 
         new_control.create_root(id=id)
         new_control.create_auto(id=id)
 
+        # if len(self.get_controls(as_meta=False)) == 1:
+        #     new_control.set_parent(self.get_controls_group())
+        #
         if self.create_sub_controls and not sub:
             for i in range(0, 2):
-                sub_control = self._create_control(id=i, sub=True)
+                sub_letter = 'A' if i == 0 else 'B'
+                sub_control = self._create_control(name='subControl{}'.format(sub_letter), id=id, sub_id=i, sub=True)
                 self._connect_sub_visibility(new_control, sub_control)
                 if self.hide_sub_controls_translate:
                     sub_control.hide_translate_attributes()
@@ -196,6 +204,13 @@ class FkChainComponent(buffer.BufferComponent, object):
             self._setup_increment(fk_ctrl, transforms, current_increment)
 
     def _setup_increment(self, ctrl, transform_list, increment):
+        """
+        Internal callback function that setup Fk chain taking into account the control we are working on
+        :param ctrl: str
+        :param transform_list: list
+        :param increment: int, current index of the control in the Fk chain
+        """
+
         self.set_transforms(transform_list, clean=True)
         current_transform = transform_list[increment]
         self._setup_all_controls(ctrl, current_transform, increment)
@@ -314,3 +329,11 @@ class FkChainComponent(buffer.BufferComponent, object):
         """
 
         pass
+
+    def _set_control_attributes(self, control):
+        """
+        Internal function that setup the attributes of the control that is going to be created
+        :param control: RigControl
+        """
+
+        control.hide_scale_attributes()

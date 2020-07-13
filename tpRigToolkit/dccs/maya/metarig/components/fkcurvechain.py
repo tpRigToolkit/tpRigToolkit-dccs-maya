@@ -11,7 +11,7 @@ import tpDcc as tp
 import tpDcc.dccs.maya as maya
 from tpDcc.dccs.maya.core import transform as xform_utils, name as name_utils, attribute as attr_utils
 
-from tpRigToolkit.dccs.maya.metarig.components import fkcurl, splineikribbon, nurbsribbon
+from tpRigToolkit.dccs.maya.metarig.components import fkcurl, splineikcluster, nurbsribbon
 
 
 class FKCurveComponent(fkcurl.FkCurlNoScale, object):
@@ -54,7 +54,7 @@ class FKCurveComponent(fkcurl.FkCurlNoScale, object):
             ribbon_cmp.add_joints(spine_joints)
             ribbon_cmp.create()
         else:
-            spline_ik = splineikribbon.SplineIkRibbon(name='{}SplineIk'.format(self.name))
+            spline_ik = splineikcluster.SplineIkCluster(name='{}SplineIk'.format(self.name))
             self.add_component(spline_ik)
             spline_ik.add_joints(joints=spine_joints)
             spline_ik.set_curve(self.curve)
@@ -344,8 +344,8 @@ class FKCurveComponent(fkcurl.FkCurlNoScale, object):
         Returns curve component applied (Ribbon or SplineIK)
         """
 
-        if self.has_component(splineikribbon.SplineIkRibbon):
-            return self.get_component_by_class(splineikribbon.SplineIkRibbon)
+        if self.has_component(splineikcluster.SplineIkCluster):
+            return self.get_component_by_class(splineikcluster.SplineIkCluster)
         elif self.has_component(nurbsribbon.NurbsRibbon):
             return self.get_component_by_class(nurbsribbon.NurbsRibbon)
 
@@ -409,7 +409,7 @@ class FKCurveComponent(fkcurl.FkCurlNoScale, object):
         Internal function that connects the spline Ik setup with the controls of the Fk chain
         """
 
-        spline_ik_component = self.get_component_by_class(splineikribbon.SplineIkRibbon)
+        spline_ik_component = self.get_component_by_class(splineikcluster.SplineIkCluster)
         if not spline_ik_component:
             return
 
