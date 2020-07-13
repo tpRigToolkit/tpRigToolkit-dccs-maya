@@ -11,10 +11,10 @@ import tpDcc as tp
 from tpDcc.libs.python import python
 from tpDcc.dccs.maya.core import attribute as attr_utils
 
-from tpRigToolkit.dccs.maya.metarig.components import fkchain
+from tpRigToolkit.dccs.maya.metarig.core import component
 
 
-class FkCurlNoScale(fkchain.FkChainComponent, object):
+class FkCurlNoScale(component.RigComponent, object):
     """
     Extended FkRig with the option to manage the curl of the fk chain using an attribute.
     This FkRig setup is not scalable and is a good option to setup fk chain for fingers.
@@ -28,43 +28,39 @@ class FkCurlNoScale(fkchain.FkChainComponent, object):
 
         self.set_name('fkCurlNoScale')
         self.set_skip_increments([])
-        self.set_create_curl(True)
         self.set_curl_axis('X')
         self.set_curl_attribute_title('')
         self.set_curl_attribute_name('curl')
 
-    def _create_control(self, sub=False, id=0):
-        new_ctrl = super(FkCurlNoScale, self)._create_control(sub=sub, id=id)
+    def create(self):
+        super(FkCurlNoScale, self).create()
 
         if not self.has_attr('curl_axis') or not self.curl_axis:
-            return new_ctrl
-        if sub:
-            return new_ctrl
+            return
+
+        curl_controls = self.get_curl_controls()
 
         # If we do not define a curl control, we define it. First control in the Fk chain
         if not self.has_attr('curl_control') or not self.curl_control:
-            self.set_curl_control(new_ctrl)
+            self.set_curl_control(curl_controls[0])
 
-        if self.create_curl:
-            title = 'CURL'
-            if self.curl_attribute_title:
-                title = 'CURL_{}'.format(self.curl_attribute_title)
-            if not tp.Dcc.object_exists('{}.{}'.format(self.curl_control.meta_node, title)):
-                title = attr_utils.EnumAttribute(title)
-                title.create(self.curl_control.meta_node)
+        title = 'CURL'
+        if self.curl_attribute_title:
+            title = 'CURL_{}'.format(self.curl_attribute_title)
+        if not tp.Dcc.object_exists('{}.{}'.format(self.curl_control.meta_node, title)):
+            title = attr_utils.EnumAttribute(title)
+            title.create(self.curl_control.meta_node)
 
-            if not new_ctrl.has_attr('auto_group') or not new_ctrl.auto_group:
-                new_ctrl.create_auto(id=id)
+        for i, curl_control in enumerate(curl_controls):
 
-            current_increment = len(self.get_controls(as_meta=False)) - 1
+            if not curl_control.has_attr('auto_group') or not curl_control.auto_group:
+                curl_control.create_auto(id=i)
 
             if self.curl_axis != 'All':
-                self._attach_curl_axis(new_ctrl.auto_group.meta_node, current_increment)
+                self._attach_curl_axis(curl_control.auto_group.meta_node, i)
             else:
                 for axis in ['x', 'y', 'z']:
-                    self._attach_curl_axis(new_ctrl.auto_group.meta_node, current_increment, axis)
-
-        return new_ctrl
+                    self._attach_curl_axis(curl_control.auto_group.meta_node, i, axis)
 
     def get_curl_axis(self):
         """
@@ -104,17 +100,6 @@ class FkCurlNoScale(fkchain.FkChainComponent, object):
             self.add_attribute(attr='skip_increments', value=integers_list)
         else:
             self.skip_increments = integers_list
-
-    def set_create_curl(self, flag):
-        """
-        Sets whether curl should be enabled or not
-        :param flag: bool
-        """
-
-        if not self.has_attr('create_curl'):
-            self.add_attribute(attr='create_curl', value=flag)
-        else:
-            self.create_curl = flag
 
     def set_curl_axis(self, axis_letter):
         """
@@ -215,7 +200,3 @@ class FkCurlNoScale(fkchain.FkChainComponent, object):
         curl_attr.set_variable_type(attr_utils.AttributeTypes.Double)
         curl_attr.create(self.curl_control.meta_node)
         curl_attr.connect_out('{}.rotate{}'.format(auto, curl_axis))
-
-        if current_increment and self.create_buffer_joints:
-            current_transform = self.message_list_get('transforms')[current_increment]
-            attr_utils.connect_rotate(auto, current_transform.meta_node)

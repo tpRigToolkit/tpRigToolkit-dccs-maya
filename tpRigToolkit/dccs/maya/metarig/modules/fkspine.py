@@ -6,7 +6,7 @@ Module that contains root rig implementation for metarig in Maya
 """
 
 from tpRigToolkit.dccs.maya.metarig.core import module, mixin
-from tpRigToolkit.dccs.maya.metarig.components import fkchain
+from tpRigToolkit.dccs.maya.metarig.components import fkchain, fkcurl
 
 
 class FkSpineRig(module.RigModule, mixin.JointMixin):
@@ -20,6 +20,7 @@ class FkSpineRig(module.RigModule, mixin.JointMixin):
         self.set_name(kwargs.get('name', 'fkSpine'))
         self.set_create_buffer_joints(True, name_for_switch_attribute='switch')
         self.set_match_to_rotation(True)
+        self.set_enable_curl(False)
 
     # ==============================================================================================
     # OVERRIDES
@@ -46,6 +47,12 @@ class FkSpineRig(module.RigModule, mixin.JointMixin):
             self.message_list_purge('controls')
             for control in fk_rig.get_controls():
                 self.message_list_append('controls', control)
+
+        if self.enable_curl:
+            fk_curl = fkcurl.FkCurlNoScale(name='spineFkCurl')
+            self.add_component(fk_curl)
+            fk_curl.set_curl_controls(self.get_controls())
+            fk_curl.create()
 
     # ==============================================================================================
     # BASE
@@ -118,3 +125,14 @@ class FkSpineRig(module.RigModule, mixin.JointMixin):
             self.add_attribute(attr='match_to_rotation', value=flag)
         else:
             self.match_to_rotation = flag
+
+    def set_enable_curl(self, flag):
+        """
+        Sets whether FK curl setup should be enabled or not
+        :param flag: bool
+        """
+
+        if not self.has_attr('enable_curl'):
+            self.add_attribute(attr='enable_curl', value=flag)
+        else:
+            self.enable_curl = flag
