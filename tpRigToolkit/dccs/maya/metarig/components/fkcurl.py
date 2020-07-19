@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Module that contains rig component to create FK joint chains with curl functionality
+Module that contains rig component to add curl functionality to already created Fk chains
 """
 
 from __future__ import print_function, division, absolute_import
@@ -15,11 +15,6 @@ from tpRigToolkit.dccs.maya.metarig.core import component
 
 
 class FkCurlNoScale(component.RigComponent, object):
-    """
-    Extended FkRig with the option to manage the curl of the fk chain using an attribute.
-    This FkRig setup is not scalable and is a good option to setup fk chain for fingers.
-    """
-
     def __init__(self, *args, **kwargs):
         super(FkCurlNoScale, self).__init__(*args, **kwargs)
 
