@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Module that contains root rig implementation for metarig in Maya
+Module that contains Fk Spine rig implementation for metarig in Maya
 """
 
 from tpRigToolkit.dccs.maya.metarig.core import module, mixin

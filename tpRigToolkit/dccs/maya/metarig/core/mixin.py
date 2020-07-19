@@ -200,6 +200,15 @@ class CoreMixin(object):
         if not self.controls_group.is_valid():
             tpRigToolkit.logger.warning('Controls Group does not exists! Skipping deletion ...')
 
+    def connect_core_attributes(self, component):
+        """
+        Function that connects core attributes of this modules/component to the given one
+        :param component: RigComponent or RigModule
+        """
+
+        component.set_side(self.side)
+        metautils.MetaAttributeUtils.connect((self, 'side'), (component, 'side'), lock=True)
+
     def connect_naming_attributes(self, component):
         """
         Function that connects all the control related attributes of this module/component to the given one
@@ -244,6 +253,18 @@ class CoreMixin(object):
         """
 
         new_group.add_attribute(attr='rig_module', value=self, attr_type='messageSimple')
+
+    def _create_setup_group(self, name):
+        """
+        Internal function that creates a new group inside the setup group
+        :param name: str
+        """
+
+        group = self.create_group('setup', name)
+        if self.setup_group:
+            group.set_parent(self.setup_group)
+
+        return group
 
 
 class ControlMixin(object):
@@ -567,11 +588,18 @@ class ControlMixin(object):
 
         control_size = self.get_sub_controls_size() if sub else self.get_controls_size()
 
+        # Sub control never can be bigger that main control, if that's the case we reduce the sub control size to fit
+        # inside the main control
+        if sub and control_size >= self.get_controls_size():
+            control_size = self.get_controls_size()
+            control_size = control_size * 0.9
+
         # TODO: Sub controls should define its own data. At this moment if control data is defined, the same is
         # used for both controls and sub controls
         control_type = self.sub_control_shape if sub else self.control_shape
         control_data = kwargs.pop(
-            'control_data', self.control_data if self.has_attr('control_data') and self.control_data else dict())
+            'control_data',
+            self.control_data if self.has_attr('control_data') and self.control_data else dict()) or dict()
         if 'control_name' in control_data:
             control_type = control_data['control_name']
 
@@ -794,9 +822,11 @@ class JointMixin(object):
             for jnt in valid_joints:
                 self.message_list_append('joints', jnt)
 
-        # ==============================================================================================
-        # INTERNAL
-        # ==============================================================================================
+        return valid_joints
+
+    # ==============================================================================================
+    # INTERNAL
+    # ==============================================================================================
 
     def _check_joint(self, jnt):
         """

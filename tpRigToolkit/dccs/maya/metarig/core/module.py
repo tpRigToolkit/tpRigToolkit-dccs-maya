@@ -5,7 +5,7 @@
 Module that contains implementation for metarig modules for Maya
 """
 
-from tpDcc.dccs.maya.meta import metanode
+from tpDcc.dccs.maya.meta import metanode, metautils
 
 import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import mixin
@@ -104,6 +104,7 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
             for component in cmp_components:
                 component.message_list_connect('rig_module', self)
 
+        self.connect_core_attributes(component)
         self.connect_naming_attributes(component)
         self.connect_controls_attributes(component)
 

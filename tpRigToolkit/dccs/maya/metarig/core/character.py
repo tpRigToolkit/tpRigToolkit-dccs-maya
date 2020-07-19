@@ -199,19 +199,25 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
 
         return None
 
-    def get_module_by_class(self, module_class):
+    def get_module_by_class(self, module_class, side=None):
         """
         Returns rig module by its class (if exists)
         :param module_class:
-        :return: RigModule
+        :return: list(RigModule)
         """
+
+        modules_found = list()
 
         if self.message_list_get('rig_modules', as_meta=False):
             for module in self.message_list_get('rig_modules'):
                 if module.__class__ == module_class:
-                    return module
+                    if side:
+                        if module.has_attr('side') and module.side == side:
+                            modules_found.append(module)
+                    else:
+                        modules_found.append(module)
 
-        return None
+        return modules_found
 
     def append_module(self, rig_module):
         """

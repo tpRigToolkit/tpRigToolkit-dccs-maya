@@ -79,6 +79,7 @@ class RigControl(metaobject.MetaObject, object):
         """
 
         target = self._get_top_group()
+        source = source.meta_node if hasattr(source, 'meta_node') else source
 
         transform.snap(target, source, snap_pivot)
 
@@ -90,8 +91,21 @@ class RigControl(metaobject.MetaObject, object):
         """
 
         target = self._get_top_group()
+        source = source.meta_node if hasattr(source, 'meta_node') else source
 
-        transform.match_translation(source, target)
+        transform.match_translation(target.meta_node, source)
+
+    def match_rotation(self, source):
+        """
+        Override to also rotate root/auto groups if necessary
+        Matches transforms rotation into given target rotation
+        :param source:
+        """
+
+        target = self._get_top_group()
+        source = source.meta_node if hasattr(source, 'meta_node') else source
+
+        transform.match_rotation(target.meta_node, source)
 
     def match_translation_and_rotation(self, source):
         """
@@ -101,8 +115,9 @@ class RigControl(metaobject.MetaObject, object):
         """
 
         target = self._get_top_group()
+        source = source.meta_node if hasattr(source, 'meta_node') else source
 
-        transform.match_translation_rotation(target.meta_node, source.meta_node)
+        transform.match_translation_rotation(target.meta_node, source)
 
     def match_scale(self, source):
         """
@@ -112,8 +127,9 @@ class RigControl(metaobject.MetaObject, object):
         """
 
         target = self._get_top_group()
+        source = source.meta_node if hasattr(source, 'meta_node') else source
 
-        transform.match_scale(source, target)
+        transform.match_scale(target.meta_node, source)
 
     # ==============================================================================================
     # BASE
@@ -233,7 +249,7 @@ class RigControl(metaobject.MetaObject, object):
 
         if self.has_attr('root_group') and maya.cmds.objExists(self.root_group.meta_node):
             tpRigToolkit.logger.warning('Impossible to create root group because it already exists!')
-            return
+            return self.root_group
 
         base_name = self.name if self.has_attr('name') and self.name else self.base_name
 
@@ -261,6 +277,8 @@ class RigControl(metaobject.MetaObject, object):
         else:
             self.root_group = new_group
 
+        return new_group
+
     def create_auto(self, group_name='auto', *args, **kwargs):
         """
         Set the auto of the control rig to the given node
@@ -269,7 +287,7 @@ class RigControl(metaobject.MetaObject, object):
 
         if self.has_attr('auto_group') and maya.cmds.objExists(self.auto_group.meta_node):
             tpRigToolkit.logger.warning('Impossible to create auto group because it already exists!')
-            return
+            return self.auto_group
 
         base_name = self.name if self.has_attr('name') and self.name else self.base_name
 
@@ -294,6 +312,8 @@ class RigControl(metaobject.MetaObject, object):
             self.add_attribute(attr='auto_group', value=new_group, attr_type='messageSimple')
         else:
             self.auto_group = new_group
+
+        return new_group
 
     def remove_root(self):
         """

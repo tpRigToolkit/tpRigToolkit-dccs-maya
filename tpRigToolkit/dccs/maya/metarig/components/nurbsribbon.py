@@ -9,8 +9,10 @@ from __future__ import print_function, division, absolute_import
 
 import tpDcc as tp
 from tpDcc.dccs.maya.meta import metanode
-from tpDcc.dccs.maya.core import geometry as geo_utils, deformer as deform_utils
+from tpDcc.dccs.maya.core import geometry as geo_utils, deformer as deform_utils, transform as xform_utils
+from tpDcc.dccs.maya.core import rivet as rivet_utils, follicle as follicle_utils
 
+import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.components import joint
 
 
@@ -28,9 +30,13 @@ class NurbsRibbon(joint.JointComponent, object):
         self.set_ribbon_offset(1.0)
         self.set_ribbon_offset_axis('Y')
         self.set_ribbon_follicle(False)
-        self.set_ribbon_buffer_group(False)
+        self.set_create_ribbon_buffer_group(False)
         self.set_ribbon_joint_aim(False, [0, 0, 1])
         self.set_last_pivot_top_value(False)
+
+    # ==============================================================================================
+    # OVERRIDES
+    # ==============================================================================================
 
     def create(self, *args, **kwargs):
         """
@@ -41,6 +47,27 @@ class NurbsRibbon(joint.JointComponent, object):
 
         self._create_surface(self.control_count - 1)
         self._create_clusters()
+        self._attach_geo()
+
+    # ==============================================================================================
+    # BASE
+    # ==============================================================================================
+
+    def get_ribbon_follows(self, as_meta=True):
+        """
+        Return list of follicles or rivets used that are driven by the ribbon surface and that drives the joints
+        :return:
+        """
+
+        return self.message_list_get('ribbon_follows', as_meta=as_meta)
+
+    def get_clusters(self, as_meta=False):
+        """
+        Returns clusters objects created by cluster component
+        :return:
+        """
+
+        return self.message_list_get('cluster_handles', as_meta=as_meta)
 
     def set_control_count(self, value):
         """
@@ -122,16 +149,16 @@ class NurbsRibbon(joint.JointComponent, object):
         else:
             self.ribbon_follicle = flag
 
-    def set_ribbon_buffer_group(self, flag):
+    def set_create_ribbon_buffer_group(self, flag):
         """
         Sets whether or not a top group should be created where all follicles will be parented into
         :param flag: bool
         """
 
-        if not self.has_attr('ribbon_buffer_group'):
-            self.add_attribute(attr='ribbon_buffer_group', value=flag)
+        if not self.has_attr('create_ribbon_buffer_group'):
+            self.add_attribute(attr='create_ribbon_buffer_group', value=flag)
         else:
-            self.ribbon_buffer_group = flag
+            self.create_ribbon_buffer_group = flag
 
     def set_ribbon_joint_aim(self, flag, up_vector=None):
         """
@@ -216,8 +243,103 @@ class NurbsRibbon(joint.JointComponent, object):
             for handle in handles:
                 self.message_list_append('cluster_handles', handle)
 
+        clusters_group = self._create_setup_group('clusters')
+        if not self.has_attr('clusters_group'):
+            self.add_attribute(attr='clusters_group', value=clusters_group, attr_type='messageSimple')
+        else:
+            self.clusters_group = clusters_group
         for handle in handles:
-            handle.set_parent(self.setup_group)
+            handle.set_parent(clusters_group)
 
         return handles
 
+    def _attach_geo(self):
+        if not self.attach_joints:
+            return
+
+        group_name = 'rivets'
+        if self.ribbon_follicle:
+            group_name = 'follicles'
+        rivet_group = self._create_setup_group(group_name)
+
+        joints = self.get_joints(as_meta=False)
+        ribbon_follows = list()
+
+        for joint in joints:
+            buffer_group = None
+
+            if self.create_ribbon_buffer_group:
+                base_name = self.name if self.has_attr('name') and self.name else self.base_name
+                naming_file, naming_rule = self._get_naming_data()
+                parsed_name = tpRigToolkit.NamesMgr().parse_name(self.base_name, naming_file=naming_file,
+                                                                 rule_name=naming_rule)
+                if parsed_name:
+                    # TODO: Allow to put the root in the first key (prefix) or in the last one (suffix)
+                    parsed_name[list(parsed_name.keys())[-1]] = group_name
+                    buffer_group_name = self._get_name(group_name, 'ribbonBuffer', node_type='group')
+                else:
+                    buffer_group_name = self._get_name(base_name, group_name, 'ribbonBuffer', node_type='group')
+                buffer_group = tp.Dcc.create_empty_group(name=buffer_group_name)
+                driver = tp.Dcc.create_buffer_group(buffer_group)
+                tp.Dcc.match_translation_rotation(joint, driver)
+
+            if buffer_group:
+                if self.ribbon_follicle:
+                    follicle = follicle_utils.follicle_to_surface(driver, self.surface.meta_node, constraint=False)
+                    nurb_follow = follicle
+                    tp.Dcc.set_attribute_value(follicle, 'inheritsTransform', False)
+                    tp.Dcc.create_parent_constraint(joint, buffer_group, maintain_offset=True)
+                    tp.Dcc.set_parent(follicle, rivet_group.meta_node)
+                else:
+                    rivet = rivet_utils.attach_to_surface(driver, self.surface.meta_node, constraint=False)
+                    nurb_follow = rivet
+                    tp.Dcc.set_attribute_value(rivet, 'inheritsTransform', False)
+                    tp.Dcc.create_parent_constraint(joint, buffer_group, maintain_offset=True)
+                    tp.Dcc.set_parent(rivet, rivet_group.meta_node)
+            else:
+                if self.ribbon_follicle:
+                    follicle = follicle_utils.follicle_to_surface(joint, self.surface.meta_node, constraint=False)
+                    nurb_follow = follicle
+                    tp.Dcc.set_attribute_value(follicle, 'inheritsTransform', False)
+                    tp.Dcc.set_parent(follicle, rivet_group.meta_node)
+                else:
+                    rivet = rivet_utils.attach_to_surface(joint, self.surface.meta_node, constraint=False)
+                    nurb_follow = rivet
+                    tp.Dcc.set_attribute_value(rivet, 'inheritsTransform', False)
+                    tp.Dcc.set_parent(rivet, rivet_group.meta_node)
+
+            ribbon_follows.append(nurb_follow)
+
+        if not self.message_list_get('ribbon_follows', as_meta=False):
+            self.message_list_connect('ribbon_follows', ribbon_follows)
+        else:
+            self.message_list_purge('ribbon_follows')
+            for ribbon_follow in ribbon_follows:
+                self.message_list_append('ribbon_follows', ribbon_follow)
+
+        if self.aim_ribbon_joints:
+            self._attach_aim()
+
+    def _attach_aim(self):
+        last_follow = None
+        last_parent = None
+
+        joints = self.get_joints(as_meta=False)
+        ribbon_follows = self.get_ribbon_follows(as_meta=False)
+
+        for joint, ribbon_follow in zip(joints, ribbon_follows):
+            relatives = tp.Dcc.list_relatives(ribbon_follow, relative_type='transform')
+            for child in relatives:
+                shape_type = tp.Dcc.node_shape_type(child)
+                if shape_type == 'locator':
+                    relatives = child
+
+            if last_follow:
+                axis = xform_utils.get_axis_aimed_at_child(joint)
+                tp.Dcc.create_aim_constraint(
+                    last_follow, joint, aim_vector=axis, up_vector=self.aim_ribbon_joints_up,
+                    world_up_axis='objectrotation', world_up_object=last_parent, maintain_offset=True
+                )
+
+            last_follow = relatives
+            last_parent = ribbon_follow

@@ -47,6 +47,31 @@ class BufferComponent(joint.JointComponent, object):
             attach_component.delete_control()
 
     # ==============================================================================================
+    # OVERRIDES
+    # ==============================================================================================
+
+    def add_joints(self, joints, clean=False):
+        """
+         Appends new joints to the module
+         :param joints: list<variant>
+         """
+
+        joints = super(BufferComponent, self).add_joints(joints=joints, clean=clean)
+
+        if len(joints) <= 0:
+            return
+
+        if not self.message_list_get('buffer_joints', as_meta=False):
+            self.message_list_connect('buffer_joints', joints)
+        else:
+            if clean:
+                self.message_list_purge('buffer_joints')
+            for jnt in joints:
+                self.message_list_append('buffer_joints', jnt)
+
+        return joints
+
+    # ==============================================================================================
     # BASE
     # ==============================================================================================
 
@@ -94,18 +119,6 @@ class BufferComponent(joint.JointComponent, object):
             self.add_attribute('build_hierarchy', value=flag, attr_type='bool')
         else:
             self.build_hierarchy = flag
-
-    def set_attach_joints(self, flag):
-        """
-        Sets whether or not
-        :param flag:
-        :return:
-        """
-
-        if not self.has_attr('attach_joints'):
-            self.add_attribute(attr='attach_joints', value=flag, attr_type='bool')
-        else:
-            self.attach_joints = flag
 
     def set_attach_type(self, attach_type):
         """

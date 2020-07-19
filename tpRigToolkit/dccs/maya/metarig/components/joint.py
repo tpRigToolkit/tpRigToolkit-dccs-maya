@@ -35,5 +35,3 @@ class JointComponent(component.RigComponent, mixin.JointMixin):
             self.add_attribute(attr='attach_joints', value=flag)
         else:
             self.attach_joints = flag
-
-

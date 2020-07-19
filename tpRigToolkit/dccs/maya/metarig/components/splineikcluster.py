@@ -58,7 +58,6 @@ class SplineIkCluster(joint.JointComponent, object):
         self._create_curve(self.control_count - 1)
         self._create_clusters()
         self._create_spline_ik()
-        # self._setup_stretchy()
 
     # ==============================================================================================
     # BASE
@@ -341,8 +340,13 @@ class SplineIkCluster(joint.JointComponent, object):
             for handle in handles:
                 self.message_list_append('cluster_handles', handle)
 
+        clusters_group = self._create_setup_group('clusters')
+        if not self.has_attr('clusters_group'):
+            self.add_attribute(attr='clusters_group', value=clusters_group, attr_type='messageSimple')
+        else:
+            self.clusters_group = clusters_group
         for handle in handles:
-            handle.set_parent(self.setup_group)
+            handle.set_parent(clusters_group)
 
         return handles
 
@@ -377,9 +381,6 @@ class SplineIkCluster(joint.JointComponent, object):
         self._wire_hires(self.curve)
 
         joints = self.get_joints(as_meta=False)
-
-        # if self.fix_x_axis:
-        #     pass
 
         children = tp.Dcc.list_relatives(joints[-1], full_path=False)
         if children:
@@ -430,24 +431,25 @@ class SplineIkCluster(joint.JointComponent, object):
     def _wire_hires(self, crv):
         if self.span_count == self.control_count:
             self.ik_curve = crv
-        else:
-            if self.wire_hires:
-                self.ik_curve = tp.Dcc.duplicate_object(self.orig_curve.meta_node)
-                tp.Dcc.set_attribute_value(self.ik_curve.meta_node, 'inheritsTransform', True)
-                self.ik_curve = tp.Dcc.rename_node(
-                    self.ik_curve.meta_node, self._get_name(self.name, node_type='curve'))
-                tp.Dcc.rebuild_curve(
-                    self.ik_curve.meta_node, construction_history=False, spans=self.span_count, replace_original=True,
-                    rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
-                    keep_tangents=False, degree=3)
-                wire_name = self._get_name(self.name, node_type='wire')
-                wire, base_crv = maya.cmds.wire(
-                    self.ik_curve.meta_node, w=crv, dds=[(0, 1000000)], gw=False, n=wire_name)
-                tp.Dcc.set_attribute_value('{}BaseWire'.format(base_crv), 'inheritsTransform', True)
-            else:
-                tp.Dcc.rebuild_curve(
-                    crv.meta_node, construction_history=True, spans=self.span_count, replace_original=True,
-                    rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
-                    keep_tangents=False, degree=3)
+            return
 
-                self.ik_curve = crv
+        if self.wire_hires:
+            self.ik_curve = tp.Dcc.duplicate_object(self.orig_curve.meta_node)
+            tp.Dcc.set_attribute_value(self.ik_curve.meta_node, 'inheritsTransform', True)
+            self.ik_curve = tp.Dcc.rename_node(
+                self.ik_curve.meta_node, self._get_name(self.name, node_type='curve'))
+            tp.Dcc.rebuild_curve(
+                self.ik_curve.meta_node, construction_history=False, spans=self.span_count, replace_original=True,
+                rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
+                keep_tangents=False, degree=3)
+            wire_name = self._get_name(self.name, node_type='wire')
+            wire, base_crv = maya.cmds.wire(
+                self.ik_curve.meta_node, w=crv, dds=[(0, 1000000)], gw=False, n=wire_name)
+            tp.Dcc.set_attribute_value('{}BaseWire'.format(base_crv), 'inheritsTransform', True)
+        else:
+            tp.Dcc.rebuild_curve(
+                crv.meta_node, construction_history=True, spans=self.span_count, replace_original=True,
+                rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
+                keep_tangents=False, degree=3)
+
+            self.ik_curve = crv
