@@ -35,6 +35,7 @@ class FkSpineRig(module.RigModule, mixin.JointMixin):
         if self.has_attr('control_data') and self.control_data:
             fk_rig.set_control_data(self.control_data)
         fk_rig.set_create_sub_controls(self.create_sub_controls)
+        fk_rig.set_create_buffer_joints(self.create_buffer_joints, self.switch_attribute_name, self.switch_node_name)
         fk_rig.set_hide_sub_controls_translate(False)
         fk_rig.set_match_to_rotation(self.match_to_rotation)
         fk_rig.create()
@@ -59,6 +60,15 @@ class FkSpineRig(module.RigModule, mixin.JointMixin):
     # ==============================================================================================
     # BASE
     # ==============================================================================================
+
+    def get_main_control(self, as_meta=True):
+        """
+        Returns the main control of the rig
+        First we check if main_control attribute exist. If not the first control in the list of controls.
+        :return:
+        """
+
+        return self.main_control
 
     def set_control_data(self, control_dict):
         """
@@ -107,15 +117,6 @@ class FkSpineRig(module.RigModule, mixin.JointMixin):
             self.add_attribute('switch_node_name', name_for_switch_node or '')
         else:
             self.switch_node_name = name_for_switch_node
-
-    def get_main_control(self, as_meta=True):
-        """
-        Returns the main control of the rig
-        First we check if main_control attribute exist. If not the first control in the list of controls.
-        :return:
-        """
-
-        return self.main_control
 
     def set_match_to_rotation(self, flag):
         """

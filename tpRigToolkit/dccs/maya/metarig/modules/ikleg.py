@@ -54,6 +54,8 @@ class IkLegRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
             self.create_buffer_joints, self.switch_attribute_name, self.switch_node_name)
         buffer_rig.set_create_sub_controls(False)
         buffer_rig.set_buffer_replace(self.buffer_replace)
+        buffer_rig.set_create_switch(True)
+        buffer_rig.set_switch_controls_group(self.controls_group)
         buffer_rig.create()
         buffer_joints = buffer_rig.get_buffer_joints() or joints
 
@@ -347,9 +349,9 @@ class IkLegRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
 
         root_group = self.top_control.create_root()
 
-        tp.Dcc.match_translation_rotation(ik_chain[0].meta_node, self.top_control.meta_node)
+        tp.Dcc.match_translation_rotation(ik_chain[0].meta_node, root_group.meta_node)
 
-        self._fix_right_side_orient(self.top_control.meta_node)
+        self._fix_right_side_orient(root_group.meta_node)
 
         if self.negate_right_scale and tp.Dcc.name_is_right(side=self.side):
             for i, axis in enumerate('XYZ'):
@@ -380,15 +382,15 @@ class IkLegRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
 
             sub_control_buffer.set_parent(bottom_control)
 
-        if self.match_bottom_control_to_joint:
-            tp.Dcc.match_translation_rotation(ik_chain[-1].meta_node, bottom_control.meta_node)
-        else:
-            tp.Dcc.match_translation(ik_chain[-1].meta_node, bottom_control.meta_node)
-
-        self._fix_right_side_orient(bottom_control.meta_node)
-
         bottom_control_buffer = bottom_control.create_root()
-        bottom_control_driver = bottom_control.create_auto('driver')
+        bottom_control.create_auto('driver')
+
+        if self.match_bottom_control_to_joint:
+            tp.Dcc.match_translation_rotation(ik_chain[-1].meta_node, bottom_control_buffer.meta_node)
+        else:
+            tp.Dcc.match_translation(ik_chain[-1].meta_node, bottom_control_buffer.meta_node)
+
+        self._fix_right_side_orient(bottom_control_buffer.meta_node)
 
         if self.negate_right_scale and tp.Dcc.name_is_right(self.side):
             for i, axis in enumerate('XYZ'):
@@ -454,7 +456,10 @@ class IkLegRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
         if tp.Dcc.name_is_left(self.side):
             tp.Dcc.connect_attribute(self.bottom_control.meta_node, 'twist', self.ik_handle.meta_node, 'twist')
         else:
-            tp.Dcc.connect_multiply(self.bottom_control.meta_node, 'twist', self.ik_handle.meta_node, 'twist', value=-1)
+            multiply_name = self._get_name(self.name, 'poleVectorTwistMult', node_type='multiply')
+            tp.Dcc.connect_multiply(
+                self.bottom_control.meta_node, 'twist', self.ik_handle.meta_node, 'twist',
+                value=-1, multiply_name=multiply_name)
 
         pole_joints = self._get_pole_joints(as_meta=False)
 
