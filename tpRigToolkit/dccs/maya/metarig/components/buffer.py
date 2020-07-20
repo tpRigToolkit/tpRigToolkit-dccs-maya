@@ -26,6 +26,8 @@ class BufferComponent(joint.JointComponent, object):
         self.set_create_buffer_joints(True, name_for_switch_attribute='switch')
         self.set_attach_type(attach.AttachJointsComponent.ATTACH_TYPE_CONSTRAINT)
         self.set_buffer_replace(['jnt', 'buffer'])
+        self.set_create_switch(False)
+        self.set_switch_controls_group(None)
 
     # ==============================================================================================
     # OVERRIDES
@@ -41,6 +43,8 @@ class BufferComponent(joint.JointComponent, object):
             attach_component = attach.AttachJointsComponent(name='{}Attach'.format(self.name))
             attach_component.set_attach_joints(True)
             attach_component.set_source_and_target_joints(source_joints=buffer_joints, target_joints=joints)
+            attach_component.set_create_switch(self.create_switch)
+            attach_component.set_switch_controls_group(self.switch_controls_group)
             self.add_component(attach_component)
             attach_component.create()
             attach_component.delete_setup()
@@ -152,6 +156,28 @@ class BufferComponent(joint.JointComponent, object):
             self.add_attribute(attr='buffer_replace', value=list_value, attr_type='string')
         else:
             self.buffer_replace = list_value
+
+    def set_create_switch(self, flag):
+        """
+        Sets whether or not create switch functionality should be executed or not
+        :param flag: bool
+        """
+
+        if not self.has_attr('create_switch'):
+            self.add_attribute(attr='create_switch', value=flag, attr_type='bool')
+        else:
+            self.create_switch = flag
+
+    def set_switch_controls_group(self, group):
+        """
+        Sets the controls group that is used to switch visibility of
+        :param group:
+        """
+
+        if not self.has_attr('switch_controls_group'):
+            self.add_attribute(attr='switch_controls_group', value=group, attr_type='messageSimple')
+        else:
+            self.switch_controls_group = group
 
     # ==============================================================================================
     # INTERNAL

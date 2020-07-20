@@ -7,8 +7,8 @@ Module that contains rig component to handle joint attachments
 
 from __future__ import print_function, division, absolute_import
 
-
-from tpDcc.dccs.maya.core import joint as joint_utils
+import tpDcc as tp
+from tpDcc.dccs.maya.core import joint as joint_utils, rig as rig_utils
 from tpDcc.dccs.maya.meta import metanode
 
 import tpRigToolkit
@@ -32,6 +32,7 @@ class AttachJointsComponent(component.RigComponent, object):
         self.set_attach_type(self.ATTACH_TYPE_CONSTRAINT)
         self.set_switch_attribute_name('switch')
         self.set_buffer_replace(['jnt', 'buffer'])
+        self.set_switch_controls_group(None)
 
     # ==============================================================================================
     # OVERRIDES
@@ -101,7 +102,7 @@ class AttachJointsComponent(component.RigComponent, object):
         if not self.has_attr('auto_switch_visibility'):
             self.add_attribute(attr='auto_switch_visibility', value=flag, attr_type='bool')
         else:
-            self.auto_control_visibility = flag
+            self.auto_switch_visibility = flag
 
     def set_attach_type(self, attach_type):
         """
@@ -151,6 +152,15 @@ class AttachJointsComponent(component.RigComponent, object):
         attach_joints.set_attach_type(self.attach_type)
         attach_joints.create()
 
+        if tp.Dcc.attribute_exists(target_joints[0], self.switch_attribute_name):
+            switch = rig_utils.RigSwitch(target_joints[0])
+            weight_count = switch.get_weight_count()
+            if weight_count > 0:
+                if self.auto_switch_visibility:
+                    switch_controls_group = self.switch_controls_group.meta_node or self.controls_group.meta_node
+                    switch.add_groups_to_index((weight_count - 1), switch_controls_group)
+                switch.create()
+
     def detach(self):
         raise NotImplementedError('Detach functionality is not implemented yet!')
 
@@ -179,3 +189,14 @@ class AttachJointsComponent(component.RigComponent, object):
         else:
             self.message_list_purge('target_joints')
             self.message_list_connect('target_joints', target_joints)
+
+    def set_switch_controls_group(self, group):
+        """
+        Sets the controls group that is used to switch visibility of
+        :param group:
+        """
+
+        if not self.has_attr('switch_controls_group'):
+            self.add_attribute(attr='switch_controls_group', value=group, attr_type='messageSimple')
+        else:
+            self.switch_controls_group = group
