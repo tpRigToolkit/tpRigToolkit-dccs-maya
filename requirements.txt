@@ -11,3 +11,4 @@ tpDcc-libs-python
 tpDcc-core
 tpDcc-libs-qt
 tpDcc-dccs-maya
+tpRigToolkit-libs-controlrig
