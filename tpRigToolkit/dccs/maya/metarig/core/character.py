@@ -21,9 +21,13 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
 
         self.set_name(kwargs.get('name', 'character'))
         self.set_main_group_name()
+        self.set_transform_group_name()
         self.set_rig_group_name()
         self.set_controls_group_name()
         self.set_setup_group_name()
+        self.set_transform_group_name()
+        self.set_geometry_group_name()
+        self.set_extras_group_name()
         self.set_control_size(1.0)
         self.set_sub_control_size(0.8)
 
@@ -43,6 +47,13 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
             attr='main_group', value=self.create_group(self.base_name, self.main_group_name),
             attr_type='messageSimple'
         )
+
+        if self.transform_group_name:
+            self.add_attribute(
+                attr='transform_group', value=self.create_group(self.base_name, self.transform_group_name),
+                attr_type='messageSimple'
+            )
+
         self.add_attribute(
             attr='controls_group', value=self.create_group(self.base_name, self.controls_group_name),
             attr_type='messageSimple'
@@ -56,9 +67,40 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
             attr_type='messageSimple'
         )
 
-        self.controls_group.set_parent(self.main_group)
-        self.rig_group.set_parent(self.main_group)
-        self.setup_group.set_parent(self.main_group)
+        if self.geometry_group_name:
+            self.add_attribute(
+                attr='geometry_group', value=self.create_group(self.base_name, self.geometry_group_name),
+                attr_type='messageSimple'
+            )
+
+        if self.extras_group_name:
+            self.add_attribute(
+                attr='extras_group', value=self.create_group(self.base_name, self.extras_group_name),
+                attr_type='messageSimple'
+            )
+
+        if hasattr(self, 'transform_group'):
+            self.transform_group.set_parent(self.main_group)
+            self.rig_group.set_parent(self.transform_group)
+            self.controls_group.set_parent(self.rig_group)
+            self.setup_group.set_parent(self.rig_group)
+        else:
+            self.rig_group.set_parent(self.main_group)
+            self.controls_group.set_parent(self.rig_group)
+            self.setup_group.set_parent(self.rig_group)
+
+        if hasattr(self, 'geometry_group'):
+            self.geometry_group.set_parent(self.main_group)
+        if hasattr(self, 'extras_group'):
+            self.extras_group.set_parent(self.main_group)
+
+        self.main_group.hide_attributes()
+        if hasattr(self, 'transform_group'):
+            self.transform_group.hide_visibility_attribute()
+        self.rig_group.hide_keyable_attributes()
+        self.setup_group.hide_keyable_attributes(skip_visibility=True)
+        self.geometry_group.hide_keyable_attributes(skip_visibility=True)
+        self.extras_group.hide_keyable_attributes(skip_visibility=True)
 
     def _post_create_group(self, new_group):
         """
@@ -95,6 +137,18 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         else:
             self.main_group_name = new_name
 
+    def set_transform_group_name(self, new_name=''):
+        """
+        Sets the name of the transform group of the character
+        This group is optional and only will be created if the user specifies a name for it
+        :param new_name: str
+        """
+
+        if not self.has_attr('transform_group_name'):
+            self.add_attribute(attr='transform_group_name', value=new_name, lock=True)
+        else:
+            self.transform_group_name = new_name
+
     def set_rig_group_name(self, new_name='rig'):
         """
         Set the name of the rig group for the character
@@ -118,6 +172,30 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
             self.add_attribute(attr='controls_group_name', value=new_name, lock=True)
         else:
             self.controls_group_name = new_name
+
+    def set_geometry_group_name(self, new_name=''):
+        """
+        Sets the name of the geometry group of the character
+        This group is optional and only will be created if the user specifies a name for it
+        :param new_name: str
+        """
+
+        if not self.has_attr('geometry_group_name'):
+            self.add_attribute(attr='geometry_group_name', value=new_name, lock=True)
+        else:
+            self.geometry_group_name = new_name
+
+    def set_extras_group_name(self, new_name=''):
+        """
+        Sets the name of the extras group of the character
+        This group is optional and only will be created if the user specifies a name for it
+        :param new_name: str
+        """
+
+        if not self.has_attr('extras_group_name'):
+            self.add_attribute(attr='extras_group_name', value=new_name, lock=True)
+        else:
+            self.extras_group_name = new_name
 
     def set_control_size(self, size):
         """
