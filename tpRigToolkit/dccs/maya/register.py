@@ -21,7 +21,7 @@ REGISTER_ATTR = '_registered_classes'
 # =================================================================================
 
 
-def register_class(cls_name, cls, is_unique=True, skip_store=False):
+def register_class(cls_name, cls, is_unique=False, skip_store=False):
     """
     This function registers given class into tpRigToolkit.dccs.maya module
     :param cls_name: str, name of the class we want to register
@@ -34,7 +34,7 @@ def register_class(cls_name, cls, is_unique=True, skip_store=False):
     if REGISTER_ATTR not in tpRigToolkit.dccs.maya.__dict__:
         tpRigToolkit.dccs.maya.__dict__[REGISTER_ATTR] = list()
 
-    if not is_unique and cls_name in tpRigToolkit.dccs.maya.__dict__:
+    if is_unique and cls_name in tpRigToolkit.dccs.maya.__dict__:
         return
 
     tpRigToolkit.dccs.maya.__dict__[cls_name] = cls
@@ -50,6 +50,5 @@ def cleanup():
     for cls_name in tpRigToolkit.dccs.maya.__dict__[REGISTER_ATTR]:
         if cls_name not in tpRigToolkit.dccs.maya.__dict__:
             continue
-        # print('Deleting: {}'.format(cls_name))
         del tpRigToolkit.dccs.maya.__dict__[cls_name]
     del tpRigToolkit.dccs.maya.__dict__[REGISTER_ATTR]
