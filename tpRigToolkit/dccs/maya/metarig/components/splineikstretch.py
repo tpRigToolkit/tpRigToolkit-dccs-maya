@@ -21,7 +21,7 @@ class SplineIkStretch(component.RigComponent, mixin.JointMixin):
             return
 
         mixin.JointMixin.__init__(self)
-        self.set_name('fkStretch')
+        self.set_name('splineIkStretch')
         self.set_ik_curve(None)
         self.set_stretch_on_off(False)
         self.set_stretch_axis('X')
@@ -84,7 +84,7 @@ class SplineIkStretch(component.RigComponent, mixin.JointMixin):
         else:
             self.stretch_axis = axis_letter
 
-    def set_stretch_attribute_controls(self, node_name):
+    def set_stretch_attribute_control(self, node_name):
         """
         Sets the control where stretch attribute will be added
         :param node_name: str

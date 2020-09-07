@@ -43,6 +43,7 @@ class SplineIkSkin(joint.JointComponent, object):
         self.set_wire_hires(False)
         self.set_advanced_twist(True)
         self.set_last_pivot_top_value(False)
+        self.set_align_start_end_markers_rotation(True)
 
     # ==============================================================================================
     # OVERRIDES
@@ -139,6 +140,17 @@ class SplineIkSkin(joint.JointComponent, object):
             self.add_attribute('last_pivot_top_value', value=flag)
         else:
             self.last_pivot_top_value = flag
+
+    def set_align_start_end_markers_rotation(self, flag):
+        """
+        Sets whether or not start and end marker joints should have the same orientation of the original joints
+        :param flag: bool
+        """
+
+        if not self.has_attr('align_start_end_markers_rotation'):
+            self.add_attribute('align_start_end_markers_rotation', value=flag)
+        else:
+            self.align_start_end_markers_rotation = flag
 
     def set_start_marker(self, start_marker):
         """
@@ -335,9 +347,17 @@ class SplineIkSkin(joint.JointComponent, object):
             # NOTE: We enable the move skinned joints option before moving the joints
             maya.mel.eval('moveJointsMode 1')
             match = xform_utils.MatchTransform(joints[0], start_marker)
-            match.translation_rotation()
+            match.translation_rotation() if self.align_start_end_markers_rotation else match.translation()
             match = xform_utils.MatchTransform(joints[-1], end_marker)
-            match.translation_rotation()
+            match.translation_rotation() if self.align_start_end_markers_rotation else match.translation()
+
+            # TODO: Maybe this is not the desired behaviour in some scenarios. Add argument to handle it.
+            # TODO: When working with broken rigs, the last joint cannot have the desired orientation, so instead of
+            # TODO: orienting the end marker to the last joint we orient it to the immediate child of the last join
+            if self.align_start_end_markers_rotation:
+                match = xform_utils.MatchTransform(joints[-2], end_marker)
+                match.rotation()
+
             maya.mel.eval('moveJointsMode 0')
 
             # TODO: If we change forward axis different to X in our original chain this will not work
