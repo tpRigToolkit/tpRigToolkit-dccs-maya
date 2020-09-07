@@ -72,7 +72,11 @@ class RigComponent(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
         if not self.has_attr('rig_module'):
             return None
 
-        return self.rig_module
+        rig_module = self.get_message('rig_module', as_meta=True)
+        if not rig_module:
+            return None
+
+        return rig_module[0]
 
     def add_component(self, component):
         """

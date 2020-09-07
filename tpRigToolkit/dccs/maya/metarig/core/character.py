@@ -30,6 +30,7 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         self.set_extras_group_name()
         self.set_control_size(1.0)
         self.set_sub_control_size(0.8)
+        self.set_sub_visibility(False)
 
     # ==============================================================================================
     # OVERRIDES
