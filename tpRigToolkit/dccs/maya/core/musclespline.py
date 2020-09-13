@@ -311,10 +311,10 @@ class MuscleSpline(object):
                 transform_utils.match_translation(grp_aim_bck_root, grp_aim_bck)
                 self._add_to_set(set_rig, [grp_aim_fwd_root, grp_aim_bck_root])
 
-                maya.cmds.parent(grp_aim_fwd_root, self._root_groups[i])
                 maya.cmds.parent(grp_aim_fwd, grp_aim_fwd_root)
-                maya.cmds.parent(grp_aim_bck_root, self._root_groups[i])
                 maya.cmds.parent(grp_aim_bck, grp_aim_fwd_root)
+                maya.cmds.parent(grp_aim_fwd_root, self._root_groups[i])
+                maya.cmds.parent(grp_aim_bck_root, self._root_groups[i])
 
         self._drivens = list()
         for i in range(self._driven_joints):

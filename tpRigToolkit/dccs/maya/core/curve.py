@@ -270,8 +270,8 @@ class CurveDataInfo(object):
         for curve in curves:
             curve_data_lines, curve_type = current_library[curve]
             if not curve_type:
-                if tp.Dcc.object_exists('{}.curveType'.format(curve)):
-                    curve_type = tp.Dcc.get_attribute_value('{}.curveType'.format(curve))
+                if tp.Dcc.attribute_exists(curve, 'curveType'):
+                    curve_type = tp.Dcc.get_attribute_value(curve, 'curveType')
             if curve != curve_type:
                 lines.append('-> {} {}'.format(curve, curve_type))
             if curve == curve_type:
