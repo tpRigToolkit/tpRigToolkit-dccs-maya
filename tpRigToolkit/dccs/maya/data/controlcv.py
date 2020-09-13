@@ -9,9 +9,13 @@ from __future__ import print_function, division, absolute_import
 
 import logging
 
+from Qt.QtWidgets import *
+
 import tpDcc as tp
+from tpDcc.libs.python import fileio, python, path as path_utils
+from tpDcc.libs.qt.widgets import buttons, dividers, search
+from tpDcc.libs.qt.widgets.library import loadwidget
 from tpDcc.dccs.maya.data import base
-from tpDcc.libs.python import fileio, path as path_utils
 from tpDcc.dccs.maya.core import shape as shape_utils
 
 from tpRigToolkit.core import data as rig_data
@@ -68,6 +72,8 @@ class ControlCVsFileData(base.MayaCustomData, object):
         version = fileio.FileVersion(file_path)
         version.save(comment)
 
+        LOGGER.info('Exported {} data'.format(self.name))
+
         return True
 
     def import_data(self, file_path='', objects=None):
@@ -93,6 +99,23 @@ class ControlCVsFileData(base.MayaCustomData, object):
 
         return True
 
+    def get_curves(self, file_name=None):
+        library = self._initialize_library(file_name)
+        library.set_active_library(self.name)
+        curves = library.get_curve_names()
+
+        return curves
+
+    def remove_curve(self, curve_name, file_name=None):
+        curves_list = python.force_list(curve_name)
+        library = self._initialize_library(file_name)
+        library.set_active_library(self.name)
+        for curve in curves_list:
+            library.remove_curve(curve)
+        library.write_data_to_file()
+
+        return True
+
     def _initialize_library(self, file_name=None):
         if file_name:
             directory = path_utils.get_dirname(file_name)
@@ -113,7 +136,76 @@ class ControlCVsFileData(base.MayaCustomData, object):
         return library
 
 
+class ControlCVOptionsWidget(loadwidget.OptionsFileWidget, object):
+    def __init__(self, parent=None):
+        super(ControlCVOptionsWidget, self).__init__(parent=parent)
+
+    def ui(self):
+        super(ControlCVOptionsWidget, self).ui()
+
+        self._search_line = search.SearchFindWidget(parent=self)
+        self._search_line.set_placeholder_text('Filter Names')
+        self._curves_list = QListWidget()
+        self._curves_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self._curves_list.setSelectionMode(self._curves_list.ExtendedSelection)
+        self._curves_list.setSortingEnabled(True)
+        self._delete_curve_button = buttons.BaseButton('Delete Curve CVs data', parent=self)
+
+        self.main_layout.addWidget(self._search_line)
+        self.main_layout.addWidget(self._curves_list)
+        self.main_layout.addWidget(dividers.Divider())
+        self.main_layout.addWidget(self._delete_curve_button)
+
+    def setup_signals(self):
+        self._search_line.textChanged.connect(self._on_filter_names)
+        self._delete_curve_button.clicked.connect(self._on_remove_curves)
+
+    def refresh(self):
+        self._curves_list.clear()
+
+        if not self._data_object:
+            return
+
+        curves = self._data_object.get_curves()
+        if not curves:
+            return
+
+        for curve_name in curves:
+            item = QListWidgetItem(curve_name)
+            self._curves_list.addItem(item)
+
+    def _on_filter_names(self):
+        self._unhide_names()
+        for i in range(self._curves_list.count()):
+            item = self._curves_list.item(i)
+            text = str(item.text())
+            filter_text = self._search_line.text()
+            if text.find(filter_text) == -1:
+                item.setHidden(True)
+
+    def _on_remove_curves(self):
+        items = self._curves_list.selectedItems()
+        if not items:
+            return
+
+        for item in items:
+            curve_name = str(item.text())
+            removed = self._data_object.remove_curve(curve_name)
+            if removed:
+                index = self._curves_list.indexFromItem(item)
+                remove_item = self._curves_list.takeItem(index.row())
+                del remove_item
+
+    def _unhide_names(self):
+        for i in range(self._curves_list.count()):
+            item = self._curves_list.item(i)
+            item.setHidden(False)
+
+
 class ControlCVPreviewWidget(rig_data.DataPreviewWidget, object):
+
+    OPTIONS_WIDGET = ControlCVOptionsWidget
+
     def __init__(self, item, parent=None):
         super(ControlCVPreviewWidget, self).__init__(item=item, parent=parent)
 
