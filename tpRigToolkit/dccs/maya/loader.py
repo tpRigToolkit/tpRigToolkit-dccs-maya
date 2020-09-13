@@ -27,6 +27,8 @@ def init(dev=False):
     logger = create_logger(dev=dev)
     register.register_class('logger', logger)
 
+    # TODO: We use it to register automatically all custom MetaNode classes (such as the meta rig ones)
+    # TODO: Remove this an register each class manually inside this module
     importer.init_importer(package=PACKAGE)
 
     # We update the registered meta classes

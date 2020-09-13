@@ -44,7 +44,7 @@ class BufferComponent(joint.JointComponent, object):
             attach_component.set_attach_joints(True)
             attach_component.set_source_and_target_joints(source_joints=buffer_joints, target_joints=joints)
             attach_component.set_create_switch(self.create_switch)
-            attach_component.set_switch_controls_group(self.switch_controls_group)
+            attach_component.set_switch_controls_group(self.switch_controls_group or self.controls_group)
             self.add_component(attach_component)
             attach_component.create()
             attach_component.delete_setup()

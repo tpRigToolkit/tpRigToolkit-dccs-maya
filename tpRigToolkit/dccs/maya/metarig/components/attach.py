@@ -157,7 +157,8 @@ class AttachJointsComponent(component.RigComponent, object):
             weight_count = switch.get_weight_count()
             if weight_count > 0:
                 if self.auto_switch_visibility:
-                    switch_controls_group = self.switch_controls_group.meta_node or self.controls_group.meta_node
+                    switch_controls_group = self.switch_controls_group.meta_node if self.switch_controls_group else None
+                    switch_controls_group = switch_controls_group or self.controls_group.meta_node
                     switch.add_groups_to_index((weight_count - 1), switch_controls_group)
                 switch.create()
 

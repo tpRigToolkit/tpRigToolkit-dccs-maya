@@ -150,7 +150,11 @@ class RigControl(metaobject.MetaObject, object):
             tpRigToolkit.logger.warning('Control {} is not connected to a rig module!'.format(self.base_name))
             return None
 
-        return self.rig_module
+        rig_module = self.get_message('rig_module', as_meta=True)
+        if not rig_module:
+            return None
+
+        return rig_module[0]
 
     def set_name(self, name):
         """

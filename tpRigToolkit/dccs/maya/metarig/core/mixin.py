@@ -52,6 +52,21 @@ class CoreMixin(object):
             if not parent:
                 return temp_parent
 
+    def get_setup_group(self):
+        """
+        Returns group where setup should be stored
+        :return:
+        """
+
+        if self.has_attr('setup_group') and tp.Dcc.object_exists(self.setup_group.meta_node):
+            return self.setup_group
+        else:
+            parent = self.get_parent()
+            if not parent:
+                return
+
+            return parent.setup_group
+
     def create(self, *args, **kwargs):
         """
         Function that creates the module/component
