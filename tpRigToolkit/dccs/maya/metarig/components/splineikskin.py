@@ -19,10 +19,10 @@ from tpDcc.dccs.maya.core import curve as curve_utils, ik as ik_utils, transform
 from tpDcc.dccs.maya.core import deformer as deform_utils, attribute as attr_utils
 
 import tpRigToolkit
-from tpRigToolkit.dccs.maya.metarig.components import attach, joint
+from tpRigToolkit.dccs.maya.metarig.components import attach, joint, buffer
 
 
-class SplineIkSkin(joint.JointComponent, object):
+class SplineIkSkin(buffer.BufferComponent, object):
     def __init__(self, *args, **kwargs):
         super(SplineIkSkin, self).__init__(*args, **kwargs)
 
@@ -30,6 +30,7 @@ class SplineIkSkin(joint.JointComponent, object):
             return
 
         self.set_name(kwargs.get('name', 'splineIkSkin'))
+        self.set_create_buffer_joints(True)
         self.set_control_count(2)
         self.set_span_count(2)
         self.set_orig_curve(None)
@@ -59,6 +60,12 @@ class SplineIkSkin(joint.JointComponent, object):
         self._create_curve(self.control_count - 1)
         self._create_marker_joints()
         self._create_spline_ik()
+
+        buffer_joints = self.get_buffer_joints(as_meta=True)
+        if buffer_joints:
+            buffer_joints[0].set_parent(self.setup_group)
+
+        self.delete_control()
 
     # ==============================================================================================
     # BASE
@@ -239,13 +246,11 @@ class SplineIkSkin(joint.JointComponent, object):
         if self.curve:
             return
 
+        joints = self.get_buffer_joints(as_meta=False) or self.get_joints(as_meta=False)
+
         orig_curve_name = self._get_name(self.name, 'splineCurve', node_type='origCurve')
         curve_name = self._get_name(self.name, 'splineCurve', node_type='curve')
-        orig_crv = curve_utils.transforms_to_curve(
-            transforms=self.get_joints(as_meta=False),
-            spans=self.span_count,
-            name=orig_curve_name
-        )
+        orig_crv = curve_utils.transforms_to_curve(transforms=joints, spans=self.span_count, name=orig_curve_name)
         tp.Dcc.set_attribute_value(orig_crv, 'inheritsTransform', False)
         new_crv = tp.Dcc.duplicate_object(orig_crv)
         tp.Dcc.rebuild_curve(
@@ -311,7 +316,7 @@ class SplineIkSkin(joint.JointComponent, object):
 
         self._wire_hires(self.curve)
 
-        joints = self.get_joints(as_meta=False)
+        joints = self.get_buffer_joints(as_meta=False) or self.get_joints(as_meta=False)
 
         children = tp.Dcc.list_relatives(joints[-1], full_path=False)
         if children:
@@ -327,19 +332,20 @@ class SplineIkSkin(joint.JointComponent, object):
         handle.set_end_joint(end_joint)
         handle.set_curve(self.ik_curve.meta_node)
         handle = handle.create()
+        handle = metanode.validate_obj_arg(handle, 'MetaObject', update_class=True)
         self.set_ik_handle(handle)
 
         if self.closest_y:
-            tp.Dcc.set_attribute_value(handle, 'dWorldUpAxis', 2)
+            tp.Dcc.set_attribute_value(handle.meta_node, 'dWorldUpAxis', 2)
 
         if children:
             for child in children:
                 tp.Dcc.set_parent(child, joints[-1])
 
-        tp.Dcc.set_parent(handle, self.setup_group.meta_node)
+        handle.set_parent(self.setup_group)
 
         if self.advanced_twist:
-            ik_handle = self.ik_handle[0]
+            ik_handle = self.ik_handle.meta_node
             start_marker = self.start_marker.meta_node
             end_marker = self.end_marker.meta_node
 
