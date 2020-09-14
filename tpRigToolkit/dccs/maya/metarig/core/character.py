@@ -18,7 +18,6 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
             return
 
         mixin.CoreMixin.__init__(self)
-
         self.set_name(kwargs.get('name', 'character'))
         self.set_main_group_name()
         self.set_transform_group_name()
@@ -44,64 +43,8 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
 
         self.add_attribute('rig_type', 'character', attr_type='string', lock=True)
 
-        self.add_attribute(
-            attr='main_group', value=self.create_group(self.base_name, self.main_group_name),
-            attr_type='messageSimple'
-        )
-
-        if self.transform_group_name:
-            self.add_attribute(
-                attr='transform_group', value=self.create_group(self.base_name, self.transform_group_name),
-                attr_type='messageSimple'
-            )
-
-        self.add_attribute(
-            attr='controls_group', value=self.create_group(self.base_name, self.controls_group_name),
-            attr_type='messageSimple'
-        )
-        self.add_attribute(
-            attr='rig_group', value=self.create_group(self.base_name, self.rig_group_name),
-            attr_type='messageSimple'
-        )
-        self.add_attribute(
-            attr='setup_group', value=self.create_group(self.base_name, self.setup_group_name),
-            attr_type='messageSimple'
-        )
-
-        if self.geometry_group_name:
-            self.add_attribute(
-                attr='geometry_group', value=self.create_group(self.base_name, self.geometry_group_name),
-                attr_type='messageSimple'
-            )
-
-        if self.extras_group_name:
-            self.add_attribute(
-                attr='extras_group', value=self.create_group(self.base_name, self.extras_group_name),
-                attr_type='messageSimple'
-            )
-
-        if hasattr(self, 'transform_group'):
-            self.transform_group.set_parent(self.main_group)
-            self.rig_group.set_parent(self.transform_group)
-            self.controls_group.set_parent(self.rig_group)
-            self.setup_group.set_parent(self.rig_group)
-        else:
-            self.rig_group.set_parent(self.main_group)
-            self.controls_group.set_parent(self.rig_group)
-            self.setup_group.set_parent(self.rig_group)
-
-        if hasattr(self, 'geometry_group'):
-            self.geometry_group.set_parent(self.main_group)
-        if hasattr(self, 'extras_group'):
-            self.extras_group.set_parent(self.main_group)
-
-        self.main_group.hide_attributes()
-        if hasattr(self, 'transform_group'):
-            self.transform_group.hide_visibility_attribute()
-        self.rig_group.hide_keyable_attributes()
-        self.setup_group.hide_keyable_attributes(skip_visibility=True)
-        self.geometry_group.hide_keyable_attributes(skip_visibility=True)
-        self.extras_group.hide_keyable_attributes(skip_visibility=True)
+        self._create_groups()
+        self._setup_groups()
 
     def _post_create_group(self, new_group):
         """
@@ -138,10 +81,9 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         else:
             self.main_group_name = new_name
 
-    def set_transform_group_name(self, new_name=''):
+    def set_transform_group_name(self, new_name='trs'):
         """
         Sets the name of the transform group of the character
-        This group is optional and only will be created if the user specifies a name for it
         :param new_name: str
         """
 
@@ -177,7 +119,6 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
     def set_geometry_group_name(self, new_name=''):
         """
         Sets the name of the geometry group of the character
-        This group is optional and only will be created if the user specifies a name for it
         :param new_name: str
         """
 
@@ -189,7 +130,6 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
     def set_extras_group_name(self, new_name=''):
         """
         Sets the name of the extras group of the character
-        This group is optional and only will be created if the user specifies a name for it
         :param new_name: str
         """
 
@@ -325,3 +265,38 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         if rig_module.has_attr('sub_control_size'):
             metautils.MetaAttributeUtils.connect(
                 (self, 'sub_control_size'), (rig_module, 'sub_control_size'), lock=True)
+
+    # ==============================================================================================
+    # INTERNAL
+    # ==============================================================================================
+
+    def _create_group(self, group_name, group_attr_name):
+        new_group = self.create_group('char', group_name)
+        new_group = metanode.validate_obj_arg(new_group, 'MetaObject', update_class=True)
+        self.add_attribute(attr=group_attr_name, value=new_group, attr_type='messageSimple')
+
+        return new_group
+
+    def _create_groups(self):
+        self._create_group(self.main_group_name, 'main_group')
+        self._create_group(self.transform_group_name, 'transform_group')
+        self._create_group(self.controls_group_name, 'controls_group')
+        self._create_group(self.rig_group_name, 'rig_group')
+        self._create_group(self.setup_group_name, 'setup_group')
+        self._create_group(self.geometry_group_name, 'geometry_group')
+        self._create_group(self.extras_group_name, 'extras_group')
+
+    def _setup_groups(self):
+        self.transform_group.set_parent(self.main_group)
+        self.rig_group.set_parent(self.transform_group)
+        self.controls_group.set_parent(self.rig_group)
+        self.setup_group.set_parent(self.rig_group)
+        self.geometry_group.set_parent(self.main_group)
+        self.extras_group.set_parent(self.main_group)
+
+        self.main_group.hide_attributes()
+        self.transform_group.hide_visibility_attribute()
+        self.rig_group.hide_keyable_attributes()
+        self.setup_group.hide_keyable_attributes(skip_visibility=True)
+        self.geometry_group.hide_keyable_attributes(skip_visibility=True)
+        self.extras_group.hide_keyable_attributes(skip_visibility=True)

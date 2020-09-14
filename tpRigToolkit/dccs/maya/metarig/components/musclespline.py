@@ -53,15 +53,16 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         spline_controls_group = metanode.validate_obj_arg(muscle_spline.controls_group, 'MetaObject', update_class=True)
         controls_group = self.get_controls_group()
         if controls_group:
-            controls_group.rig_module = None
-            controls_group.delete()
-        self.controls_group = spline_controls_group
+            spline_controls_group.set_parent(controls_group)
+        else:
+            self.controls_group = spline_controls_group
+        # tp.Dcc.set_attribute_value(muscle_spline.drivens_group, 'visibility', False)
         drivens_group = metanode.validate_obj_arg(muscle_spline.drivens_group, 'MetaObject', update_class=True)
         setup_group = self.get_setup_group()
         if setup_group:
-            setup_group.rig_module = None
-            setup_group.delete()
-        self.setup_group = drivens_group
+            drivens_group.set_parent(setup_group)
+        else:
+            self.setup_group = drivens_group
         root_groups = metanode.validate_obj_list_arg(muscle_spline.root_groups, 'MetaObject', update_class=True)
         self.message_list_connect('root_groups', root_groups)
         # TODO: This misses the auto/root connection
@@ -74,12 +75,9 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
 
         rig_module = self.get_rig_module()
         if rig_module:
-            self.controls_group.set_parent(rig_module.character.controls_group)
-            self.setup_group.set_parent(rig_module.character.setup_group)
-
             spline_node = self.get_message('spline_node')[0]
             node_parent = maya.cmds.listRelatives(spline_node, parent=True, fullPath=True)[0]
-            maya.cmds.parent(node_parent, rig_module.character.setup_group.meta_node)
+            maya.cmds.parent(node_parent, self.setup_group.meta_node)
 
         maya.cmds.delete(muscle_spline.main_group)
 

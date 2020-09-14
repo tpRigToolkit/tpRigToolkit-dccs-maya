@@ -17,8 +17,14 @@ def get_character_module(character_name):
         if 'meta_class' in attrs and 'meta_node_id' in attrs:
             meta_class = maya.cmds.getAttr('{}.meta_class'.format(network_node))
             module_name = maya.cmds.getAttr('{}.meta_node_id'.format(network_node))
-            if meta_class == character.RigCharacter.__name__ and module_name == character_name:
+            if module_name != character_name:
+                continue
+            if meta_class == character.RigCharacter.__name__:
                 return metanode.validate_obj_arg(network_node, 'RigCharacter')
+            else:
+                for sub_class in character.RigCharacter.__subclasses__():
+                    if meta_class == sub_class.__name__:
+                        return metanode.validate_obj_arg(network_node, sub_class.__name__)
 
     return None
 

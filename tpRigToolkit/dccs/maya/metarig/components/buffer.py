@@ -25,7 +25,7 @@ class BufferComponent(joint.JointComponent, object):
         self.set_build_hierarchy(False)
         self.set_create_buffer_joints(True, name_for_switch_attribute='switch')
         self.set_attach_type(attach.AttachJointsComponent.ATTACH_TYPE_CONSTRAINT)
-        self.set_buffer_replace(['jnt', 'buffer'])
+        self.set_buffer_replace([['jnt', 'je'], ['buff', 'buffEnd']])
         self.set_create_switch(False)
         self.set_switch_controls_group(None)
 

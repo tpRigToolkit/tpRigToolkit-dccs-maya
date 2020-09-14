@@ -165,8 +165,11 @@ class CoreMixin(object):
         Function that creates new groups for the character
         """
 
+        attr_name = kwargs.pop('attr_name', None)
         kwargs['node_type'] = 'group'
         new_group = metaobject.MetaObject(name=self._get_name(*args, **kwargs), node_type='transform')
+        if attr_name:
+            self.add_attribute(attr=attr_name, value=new_group, attr_type='messageSimple')
         self._post_create_group(new_group)
 
         return new_group
