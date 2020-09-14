@@ -228,6 +228,10 @@ class ControlColorFileData(base.MayaCustomData, object):
                                     parent = tp.Dcc.node_parent(shape)
                                     if parent and tp.Dcc.attribute_exists(parent, 'color'):
                                         tp.Dcc.set_attribute_value(parent, 'color', sub_color[index][1][0])
+                                        override_enabled = tp.Dcc.get_attribute_value(shape, 'overrideEnabled')
+                                        if override_enabled:
+                                            tp.Dcc.set_attribute_value(shape, 'overrideEnabled', False)
+                                            tp.Dcc.set_attribute_value(shape, 'overrideEnabled', True)
                                     else:
                                         LOGGER.warning(
                                             'Impossible to set control color because override color '
@@ -269,12 +273,16 @@ class ControlColorOptionsWidget(controlcv.ControlCVOptionsWidget, object):
         self._delete_curve_button.setText('Delete Curve Color Data')
 
 
-class ControlColorreviewWidget(rig_data.DataPreviewWidget, object):
+class ControlColorPreviewWidget(rig_data.DataPreviewWidget, object):
 
     OPTIONS_WIDGET = ControlColorOptionsWidget
 
     def __init__(self, item, parent=None):
-        super(ControlColorreviewWidget, self).__init__(item=item, parent=parent)
+        super(ControlColorPreviewWidget, self).__init__(item=item, parent=parent)
+
+        self._export_btn.setText('Save')
+        self._export_btn.setVisible(True)
+        self._load_btn.setVisible(False)
 
 
 class ControlColor(rig_data.DataItem, object):
@@ -286,7 +294,7 @@ class ControlColor(rig_data.DataItem, object):
     TypeIconName = 'color.png'
     DataType = ControlColorFileData.get_data_type()
     DefaultDataFileName = 'new_controlcolor_file'
-    PreviewWidgetClass = ControlColorreviewWidget
+    PreviewWidgetClass = ControlColorPreviewWidget
 
     def __init__(self, *args, **kwargs):
         super(ControlColor, self).__init__(*args, **kwargs)
