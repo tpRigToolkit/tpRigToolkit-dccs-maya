@@ -25,7 +25,7 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         self.set_name(kwargs.get('name', 'ikChain'))
         self.set_create_buffer_joints(True, name_for_switch_attribute='switch')
-        self.set_buffer_replace(['jnt', 'buffer'])
+        self.set_buffer_replace([['jnt', 'je'], ['ikJnt', 'ikJe']])
         self.set_right_side_fix(True)
         self.set_create_ik_buffer_joint(False)
         self.set_create_top_control(True)
@@ -87,9 +87,9 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         self._create_ik_handle()
 
-        if self.create_buffer_joints:
-            ik_group = self._create_setup_group('ik')
-            buffer_joints[0].set_parent(ik_group)
+        # if self.create_buffer_joints:
+        #     ik_group = self._create_setup_group('ik')
+        #     buffer_joints[0].set_parent(ik_group)
 
         if self.create_top_control:
             self._create_top_control()
@@ -322,13 +322,18 @@ class IkChainComponent(buffer.BufferComponent, object):
         ik_handle = tp.Dcc.create_ik_handle(
             self._get_name(self.name, 'legIkHandle', node_type='ikHandle'),
             start_joint=ik_chain[0].meta_node, end_joint=buffer_joint, solver_type=ik_solver)
-        ik_handle_buffer = tp.Dcc.create_buffer_group(ik_handle)
+        if self.create_ik_buffer_joint:
+            ik_handle_buffer = tp.Dcc.create_buffer_group(ik_handle)
 
         ik_handle = metanode.validate_obj_arg(ik_handle, 'MetaObject', update_class=True)
         self.add_attribute('ik_handle', value=ik_handle, attr_type='messageSimple')
 
-        tp.Dcc.set_parent(ik_handle_buffer, self.setup_group.meta_node)
-        tp.Dcc.hide_node(ik_handle_buffer)
+        if self.create_ik_buffer_joint:
+            tp.Dcc.set_parent(ik_handle_buffer, self.setup_group.meta_node)
+            tp.Dcc.hide_node(ik_handle_buffer)
+        else:
+            tp.Dcc.set_parent(ik_handle.meta_node, self.setup_group.meta_node)
+            tp.Dcc.hide_node(ik_handle.meta_node)
 
     def _create_buffer_joint(self):
         """
@@ -412,7 +417,7 @@ class IkChainComponent(buffer.BufferComponent, object):
             sub_control_buffer.set_parent(bottom_control)
 
         bottom_control_buffer = bottom_control.create_root()
-        bottom_control.create_auto('driver')
+        bottom_control.create_auto()
 
         if self.match_bottom_control_to_joint:
             tp.Dcc.match_translation_rotation(
@@ -428,12 +433,13 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         # TODO: Create world switch?????
 
-        ik_handle_parent = tp.Dcc.node_parent(self.ik_handle.meta_node)
+        tp.Dcc.create_point_constraint(self.ik_handle.meta_node, bottom_control.meta_node)
 
-        if self.create_sub_controls:
-            tp.Dcc.set_parent(ik_handle_parent, sub_control.meta_node)
-        else:
-            tp.Dcc.set_parent(ik_handle_parent, bottom_control.meta_node)
+        # ik_handle_parent = tp.Dcc.node_parent(self.ik_handle.meta_node)
+        # if self.create_sub_controls:
+        #     tp.Dcc.set_parent(ik_handle_parent, sub_control.meta_node)
+        # else:
+        #     tp.Dcc.set_parent(ik_handle_parent, bottom_control.meta_node)
 
         if self.orient_constraint:
             if self.create_sub_controls:
@@ -489,7 +495,7 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         self._create_pole_vector_constraint()
 
-        name = self._get_name(self.name, 'poleVectorLine')
+        name = self._get_name(self.name, 'poleVectorLine', node_type='poleVector')
         rig_line = rig_utils.RiggedLine(pole_joints[1], pole_vector_control.meta_node, name).create()
         tp.Dcc.set_parent(rig_line, self.controls_group.meta_node)
 

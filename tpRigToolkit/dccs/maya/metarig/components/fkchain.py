@@ -22,6 +22,7 @@ class FkChainComponent(buffer.BufferComponent, object):
         if self.cached:
             return
 
+        self.set_buffer_replace([['jnt', 'je'], ['fkJnt', 'fkJe']])
         self.set_skip_increments([])
         self.set_match_to_rotation(True)
         self.set_offset_rotation([])        # [0, 0, 0]

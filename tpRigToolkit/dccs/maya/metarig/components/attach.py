@@ -151,6 +151,11 @@ class AttachJointsComponent(component.RigComponent, object):
         )
         attach_joints.set_attach_type(self.attach_type)
         attach_joints.create()
+        remap_nodes = attach_joints.remap_nodes
+        for remap_node in remap_nodes:
+            remap_split = remap_node.split('_')[:-1]
+            tp.Dcc.rename_node(
+                remap_node, self._get_name(self.name, '_'.join(remap_split), node_type='remapValue'))
 
         if tp.Dcc.attribute_exists(target_joints[0], self.switch_attribute_name):
             switch = rig_utils.RigSwitch(target_joints[0])
@@ -161,6 +166,9 @@ class AttachJointsComponent(component.RigComponent, object):
                     switch_controls_group = switch_controls_group or self.controls_group.meta_node
                     switch.add_groups_to_index((weight_count - 1), switch_controls_group)
                 switch.create()
+                switch_conditions = switch.conditions
+                for _, condition in switch_conditions.items():
+                    tp.Dcc.rename_node(condition, self._get_name(self.name, 'switch', node_type='condition'))
 
     def detach(self):
         raise NotImplementedError('Detach functionality is not implemented yet!')

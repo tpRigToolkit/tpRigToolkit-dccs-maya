@@ -94,6 +94,7 @@ class RigComponent(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
             for component in cmp_components:
                 component.message_list_connect('rig_module', self)
 
+        self.connect_core_attributes(component)
         self.connect_naming_attributes(component)
         self.connect_controls_attributes(component)
 
