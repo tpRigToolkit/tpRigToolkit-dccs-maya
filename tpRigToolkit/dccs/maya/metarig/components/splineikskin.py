@@ -16,10 +16,8 @@ import tpDcc as tp
 import tpDcc.dccs.maya as maya
 from tpDcc.dccs.maya.meta import metanode
 from tpDcc.dccs.maya.core import curve as curve_utils, ik as ik_utils, transform as xform_utils, skin as skin_utils
-from tpDcc.dccs.maya.core import deformer as deform_utils, attribute as attr_utils
 
-import tpRigToolkit
-from tpRigToolkit.dccs.maya.metarig.components import attach, joint, buffer
+from tpRigToolkit.dccs.maya.metarig.components import buffer
 
 
 class SplineIkSkin(buffer.BufferComponent, object):
@@ -45,6 +43,8 @@ class SplineIkSkin(buffer.BufferComponent, object):
         self.set_advanced_twist(True)
         self.set_last_pivot_top_value(False)
         self.set_align_start_end_markers_rotation(True)
+        self.set_create_mid_marker(False)
+        self.set_orient_markers(False)
 
     # ==============================================================================================
     # OVERRIDES
@@ -158,6 +158,28 @@ class SplineIkSkin(buffer.BufferComponent, object):
             self.add_attribute('align_start_end_markers_rotation', value=flag)
         else:
             self.align_start_end_markers_rotation = flag
+
+    def set_create_mid_marker(self, flag):
+        """
+        Sets whether or not mid marker should be created
+        :param flag: bool
+        """
+
+        if not self.has_attr('create_mid_marker'):
+            self.add_attribute('create_mid_marker', value=flag)
+        else:
+            self.create_mid_marker = flag
+
+    def set_orient_markers(self, flag):
+        """
+        Sets whether or not markers should be aligned to joints
+        :param flag: bool
+        """
+
+        if not self.has_attr('orient_markers'):
+            self.add_attribute('orient_markers', value=flag)
+        else:
+            self.orient_markers = flag
 
     def set_start_marker(self, start_marker):
         """
@@ -276,12 +298,17 @@ class SplineIkSkin(buffer.BufferComponent, object):
         if self.has_attr('marker_joints'):
             return
 
+        joints = self.get_buffer_joints(as_meta=False) or self.get_joints(as_meta=False)
+
         joint_name = self._get_name(self.name, 'splineIkSkin', node_type='joint')
         last_pivot_end = True if self.last_pivot_top_value else False
 
         skin_curve = skin_utils.SkinJointCurve(geometry=self.curve.meta_node, name=joint_name, joint_radius=2.0)
         skin_curve.set_first_joint_pivot_at_start(True)
         skin_curve.set_last_joint_pivot_at_end(last_pivot_end)
+        skin_curve.set_create_mid_joint(self.create_mid_marker)
+        skin_curve.set_orient_start(joints[0])
+        skin_curve.set_orient_end(joints[-1])
         skin_curve.set_join_ends(True)
         skin_curve.create()
 

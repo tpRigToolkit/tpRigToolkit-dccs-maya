@@ -320,7 +320,7 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         ik_solver = ik_utils.IkHandle.SOLVER_RP
         ik_handle = tp.Dcc.create_ik_handle(
-            self._get_name(self.name, 'legIkHandle', node_type='ikHandle'),
+            self._get_name(self.name, 'ikHandle', node_type='ikHandle'),
             start_joint=ik_chain[0].meta_node, end_joint=buffer_joint, solver_type=ik_solver)
         if self.create_ik_buffer_joint:
             ik_handle_buffer = tp.Dcc.create_buffer_group(ik_handle)
