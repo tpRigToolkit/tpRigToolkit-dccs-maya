@@ -209,6 +209,10 @@ class ControlCVPreviewWidget(rig_data.DataPreviewWidget, object):
     def __init__(self, item, parent=None):
         super(ControlCVPreviewWidget, self).__init__(item=item, parent=parent)
 
+        self._export_btn.setText('Save')
+        self._export_btn.setVisible(True)
+        self._load_btn.setVisible(False)
+
 
 class ControlCV(rig_data.DataItem, object):
     Extension = '.{}'.format(ControlCVsFileData.get_data_extension())

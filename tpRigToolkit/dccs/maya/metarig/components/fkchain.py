@@ -168,6 +168,9 @@ class FkChainComponent(buffer.BufferComponent, object):
                 tp.Dcc.rotate_node_in_object_space(xform, offset_rotation)
 
         tp.Dcc.create_parent_constraint(target_transform, control.meta_node, maintain_offset=True)
+        if self.scalable:
+            tp.Dcc.create_scale_constraint(target_transform, control.meta_node, maintain_offset=True)
+            control.show_scale_attributes()
 
     def _setup(self, transforms=None):
         """
