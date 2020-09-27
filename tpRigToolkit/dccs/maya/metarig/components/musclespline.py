@@ -32,6 +32,8 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         self.set_lock_jiggle_attributes(False)
         self.set_create_sets(False)
         self.set_spline_node(None)
+        self.set_create_bendy_controls_visibility_attribute(True)
+        self.set_attributes_control(None)
 
     # ==============================================================================================
     # OVERRIDES
@@ -92,6 +94,8 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         else:
             self._connect_all_controls(muscle_spline)
 
+        self._create_attributes()
+
     # ==============================================================================================
     # BASE
     # ==============================================================================================
@@ -147,6 +151,24 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
             for xform in source_transforms:
                 self.message_list_append('source_transforms', xform)
 
+    def set_create_bendy_controls_visibility_attribute(self, flag):
+        if not self.has_attr('create_bendy_controls_visibility_attribute'):
+            self.add_attribute(attr='create_bendy_controls_visibility_attribute', value=flag)
+        else:
+            self.create_bendy_controls_visibility_attribute = flag
+
+    def set_attributes_control(self, control):
+        """
+        Sets the control where rig module specific attributes will be stored
+        :param control:
+        :return:
+        """
+
+        if not self.has_attr('attributes_control'):
+            self.add_attribute(attr='attributes_control', value=control, attr_type='messageSimple')
+        else:
+            self.attributes_control = control
+
     # ==============================================================================================
     # INTERNAL
     # ==============================================================================================
@@ -190,3 +212,23 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         # TODO: this code won't be necessary anymore.
         for control, driven in zip(spline_controls, muscle_spline.drivens):
             tp.Dcc.create_scale_constraint(driven, control, maintain_offset=False)
+
+    def _create_attributes(self):
+        if not self.create_bendy_controls_visibility_attribute or not self.attributes_control:
+            return False
+
+        controls_group = self.get_controls_group()
+        if not controls_group:
+            return False
+
+        tp.Dcc.add_title_attribute(self.attributes_control.meta_node, 'BENDY_CONTROLS')
+
+        bendy_attr_name = 'bendy_visibility'
+        if not tp.Dcc.attribute_exists(self.attributes_control.meta_node, bendy_attr_name):
+            tp.Dcc.add_integer_attribute(
+                self.attributes_control.meta_node, bendy_attr_name, default_value=0, min_value=0, max_value=1)
+
+        tp.Dcc.connect_attribute(
+            self.attributes_control.meta_node, bendy_attr_name, controls_group.meta_node, 'visibility')
+
+        return True
