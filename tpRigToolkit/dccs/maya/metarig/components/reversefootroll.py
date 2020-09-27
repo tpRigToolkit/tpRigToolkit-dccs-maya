@@ -67,9 +67,9 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         self._setup_reverse_hierarchy()
         self._create_and_connect_ik_handles()
 
-        # self._create_bank_roll()
-        # self._create_mid_pivot_rotate()
-        # self._create_forward_roll()
+        self._create_bank_roll()
+        self._create_mid_pivot_rotate()
+        self._create_forward_roll()
 
         # Parent root reverse joint setup to component setup group
         self.ankle.set_parent(self.setup_group)
@@ -279,7 +279,7 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         if not self.create_reverse_foot_hierarchy:
             return
 
-        self.mid.set_parent(self.ball)
+        self.mid.set_parent(self.yawout)
         self.ball.set_parent(self.yawout)
         self.yawout.set_parent(self.yawin)
         self.yawin.set_parent(self.heel)
@@ -361,6 +361,8 @@ class ExpressionReverseFootRollComponent(ReverseFootRollComponent, object):
     def create(self):
         super(ExpressionReverseFootRollComponent, self).create()
 
+        self._create_foot_expressions()
+
     def _create_roll_attributes(self):
 
         roll_control = self.foot_roll_control.meta_node
@@ -372,3 +374,59 @@ class ExpressionReverseFootRollComponent(ReverseFootRollComponent, object):
         tp.Dcc.add_double_attribute(roll_control, 'heelRotate', keyable=True)
         tp.Dcc.add_double_attribute(roll_control, 'toeRotate', keyable=True)
         tp.Dcc.add_double_attribute(roll_control, 'toeWiggle', keyable=True)
+
+    def _create_bank_roll(self):
+        pass
+
+    def _create_mid_pivot_rotate(self):
+        pass
+
+    def _create_forward_roll(self):
+        pass
+
+    # ==============================================================================================
+    # INTERNAL
+    # ==============================================================================================
+
+    def _create_foot_expressions(self):
+        """
+        Internal function that creates foot roll expressions
+        """
+
+        roll_control = tp.Dcc.node_short_name(self.foot_roll_control.meta_node)
+        yaw_in_joint = tp.Dcc.node_short_name(self.yawin.meta_node)
+        yaw_out_joint = tp.Dcc.node_short_name(self.yawout.meta_node)
+        heel_joint = tp.Dcc.node_short_name(self.heel.meta_node)
+        mid_joint = tp.Dcc.node_short_name(self.mid.meta_node)
+        toe_joint = tp.Dcc.node_short_name(self.toe.meta_node)
+        ball_joint = tp.Dcc.node_short_name(self.ball.meta_node)
+        ankle_joint = tp.Dcc.node_short_name(self.ankle.meta_node)
+
+        toe_wiggle_expr = """
+        // toe wiggle
+        {1}.rotateX = {0}.toeWiggle;
+        
+        // toe spin                            
+        {2}.rotateY = {0}.toeRotate;
+        
+        // heel spin
+        {3}.rotateY = {0}.heelRotate;
+        
+        // bank in
+        {4}.rotateZ = (min(0, {0}.bank)) * -1;
+        
+        // bank out
+        {5}.rotateZ = (max(0, {0}.bank)) * -1;
+        
+        // foot roll (heel)
+        {3}.rotateX = min(0, {0}.footRoll);
+        
+        // foot roll (toe)
+        {2}.rotateX = linstep({0}.toeLift, {0}.toeStraight, {0}.footRoll) * {0}.footRoll;
+        
+        // foot roll (ball)
+        {6}.rotateX = (linstep(0, {0}.toeLift, {0}.footRoll)) * (1 - (linstep({0}.toeLift, {0}.toeStraight, {0}.footRoll))) * {0}.footRoll;
+        """.format(roll_control, mid_joint, toe_joint, heel_joint, yaw_in_joint, yaw_out_joint, ball_joint)
+
+        maya.cmds.expression(
+            name=self._get_name(self.name, 'footRev', node_type='expression'), string=toe_wiggle_expr)
