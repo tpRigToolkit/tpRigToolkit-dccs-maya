@@ -138,6 +138,24 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
                     return component.meta_node
         return None
 
+    def get_component_by_name(self, component_name, as_meta=True):
+        """
+        Returns component by name
+        :param component_name: str
+        :param as_meta: bool
+        :return: RigComponent
+        """
+
+        all_components = self.get_components() or list()
+        for component in all_components:
+            if component.name == component_name:
+                if as_meta:
+                    return component
+                else:
+                    return component.meta_node
+
+        return None
+
     def has_component(self, component_class):
         """
         Implements RigTaskModule has_component() function
