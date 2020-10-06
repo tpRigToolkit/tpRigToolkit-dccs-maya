@@ -290,8 +290,8 @@ class ControlColor(rig_data.DataItem, object):
     Extensions = ['.{}'.format(ControlColorFileData.get_data_extension())]
     MenuOrder = 6
     MenuName = ControlColorFileData.get_data_title()
-    MenuIconName = 'color.png'
-    TypeIconName = 'color.png'
+    MenuIconName = 'controls_color_data.png'
+    TypeIconName = 'controls_color_data.png'
     DataType = ControlColorFileData.get_data_type()
     DefaultDataFileName = 'new_controlcolor_file'
     PreviewWidgetClass = ControlColorPreviewWidget

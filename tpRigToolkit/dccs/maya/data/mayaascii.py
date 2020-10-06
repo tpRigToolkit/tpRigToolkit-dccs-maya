@@ -52,7 +52,7 @@ class MayaAscii(data.DataItem, object):
     Extensions = ['.{}'.format(maya_base.MayaAsciiFileData.get_data_extension())]
     MenuOrder = 2
     MenuName = maya_base.MayaAsciiFileData.get_data_title()
-    MenuIconPath = 'maya_ascii_data.png'
+    MenuIconName = 'maya_ascii_data.png'
     TypeIconPath = 'maya_ascii_data.png'
     DataType = maya_base.MayaAsciiFileData.get_data_type()
     DefaultDataFileName = 'new_maya_ascii_file'

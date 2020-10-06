@@ -61,8 +61,8 @@ class ControlAttributesData(attributes.AttributesData, object):
     Extensions = ['.{}'.format(ControlAttributesFileData.get_data_extension())]
     MenuOrder = 8
     MenuName = ControlAttributesFileData.get_data_title()
-    MenuIconName = 'attribute.png'
-    TypeIconName = 'attribute.png'
+    MenuIconName = 'attributes_data.png'
+    TypeIconName = 'attributes_data.png'
     DataType = ControlAttributesFileData.get_data_type()
     DefaultDataFileName = 'new_attributes_file'
 

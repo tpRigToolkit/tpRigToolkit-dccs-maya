@@ -219,8 +219,8 @@ class ControlCV(rig_data.DataItem, object):
     Extensions = ['.{}'.format(ControlCVsFileData.get_data_extension())]
     MenuOrder = 6
     MenuName = ControlCVsFileData.get_data_title()
-    MenuIconName = 'control.png'
-    TypeIconName = 'control.png'
+    MenuIconName = 'controls_cvs_data.png'
+    TypeIconName = 'controls_cvs_data.png'
     DataType = ControlCVsFileData.get_data_type()
     DefaultDataFileName = 'new_controlcv_file'
     PreviewWidgetClass = ControlCVPreviewWidget

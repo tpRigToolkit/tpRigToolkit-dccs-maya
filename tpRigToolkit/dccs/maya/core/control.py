@@ -233,7 +233,7 @@ class RigControl(object):
         if not shapes:
             return False
 
-        node_utils.set_color_rgb(shapes, r, g, b)
+        node_utils.set_rgb_color(shapes, [r, g, b])
 
     @decorators.undo_chunk
     def set_rotate_order(self, xyz_order):
@@ -268,7 +268,7 @@ class RigControl(object):
             return False
 
         shapes = shape_utils.get_shapes(self.get())
-        color = node_utils.get_color(shapes[0]) if shapes else 0
+        color = node_utils.get_rgb_color(shapes[0]) if shapes else 0
         controls_lib = self._get_controls_lib()
         control_exists = controls_lib.control_exists(type_name)
         if not control_exists:
@@ -302,7 +302,7 @@ class RigControl(object):
         """
 
         shapes = shape_utils.get_shapes(self.get())
-        color = node_utils.get_color(shapes[0])
+        color = node_utils.get_rgb_color(shapes[0])
         curve_utils.set_shapes_as_text_curve(self.get(), text)
         self._shapes = shape_utils.get_shapes(self.get())
         node_utils.set_color(self._shapes, color)
@@ -438,13 +438,13 @@ class RigControl(object):
             index = 0
             for shape in shapes:
                 if index < len(orig_shapes) and index < len(shapes):
-                    color = node_utils.get_color(orig_shapes[index])
+                    color = node_utils.get_rgb_color(orig_shapes[index])
                 colors[shape] = color
                 if color:
                     if type(color) != list:
                         node_utils.set_color(shape, color)
                     else:
-                        node_utils.set_color_rgb(shape, color[0], color[1], color[2])
+                        node_utils.set_rgb_color(shape, [color[0], color[1], color[2]])
                 maya.cmds.parent(shape, self.get(), r=True, shape=True)
                 index += 1
 

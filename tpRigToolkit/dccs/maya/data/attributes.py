@@ -146,7 +146,7 @@ class AttributesFileData(base.MayaCustomData, object):
                 except Exception as exc:
                     LOGGER.warning('Impossible to set {} to {}: "{}" '.format(attribute, attribute_value, exc))
 
-        tp.Dcc.select_object(selection)
+        tp.Dcc.select_node(selection)
 
         if valid_import:
             LOGGER.info('Imported attributes successfully!')
@@ -203,8 +203,8 @@ class AttributesData(rig_data.DataItem, object):
     Extensions = ['.{}'.format(AttributesFileData.get_data_extension())]
     MenuOrder = 7
     MenuName = AttributesFileData.get_data_title()
-    MenuIconName = 'attribute.png'
-    TypeIconName = 'attribute.png'
+    MenuIconName = 'attributes_data.png'
+    TypeIconName = 'attributes_data.png'
     DataType = AttributesFileData.get_data_type()
     DefaultDataFileName = 'new_attributes_file'
     PreviewWidgetClass = AttributesPreviewWidget
