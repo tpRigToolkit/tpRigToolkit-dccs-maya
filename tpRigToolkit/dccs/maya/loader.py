@@ -20,6 +20,7 @@ def init(dev=False):
     Initializes module
     """
 
+    import tpDcc
     from tpDcc.libs.python import importer
     from tpDcc.dccs.maya import loader
     from tpRigToolkit.dccs.maya import register
@@ -30,6 +31,10 @@ def init(dev=False):
     # TODO: We use it to register automatically all custom MetaNode classes (such as the meta rig ones)
     # TODO: Remove this an register each class manually inside this module
     importer.init_importer(package=PACKAGE)
+
+    # Register resources
+    resources_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'resources')
+    tpDcc.ResourcesMgr().register_resource(resources_path)
 
     # We update the registered meta classes
     loader.create_metadata_manager()
