@@ -5,8 +5,10 @@
 Module that contains implementation for metarig characters for Maya
 """
 
+import tpDcc as tp
 from tpDcc.dccs.maya.meta import metanode, metautils
 
+import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import mixin
 
 
@@ -37,7 +39,7 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
 
     def create(self):
         """
-        Function that creates character
+        Creates character
         This function should be called only when all options are already setup
         """
 
@@ -45,6 +47,30 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
 
         self._create_groups()
         self._setup_groups()
+
+    def delete(self):
+
+        rig_modules = self.get_rig_modules()
+        for rig_module in rig_modules:
+            rig_module.delete()
+
+        # We remove main group, try/except because in some scenarios main group cannot exists
+        try:
+            self.main_group.delete()
+        except Exception:
+            pass
+
+        # In some circumstances, when main group is removed, rig character node is automatically
+        # removed by DCC
+        try:
+            super(RigCharacter, self).delete()
+        except Exception as exc:
+            pass
+
+    def rename(self, name, rename_child_links=False, *args, **kwargs):
+        super(RigCharacter, self).rename(name, rename_child_links=rename_child_links, *args, **kwargs)
+
+        self.name = name
 
     def _post_create_group(self, new_group):
         """
@@ -65,9 +91,13 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
 
         return None
 
-    # ==============================================================================================
-    # BASE
-    # ==============================================================================================
+    def get_rig_modules(self):
+        """
+        Returns all modules of current rig
+        :return:
+        """
+
+        return self.message_list_get('rig_modules')
 
     def set_main_group_name(self, new_name='main'):
         """
@@ -116,7 +146,7 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         else:
             self.controls_group_name = new_name
 
-    def set_geometry_group_name(self, new_name=''):
+    def set_geometry_group_name(self, new_name='geo'):
         """
         Sets the name of the geometry group of the character
         :param new_name: str
@@ -127,7 +157,7 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         else:
             self.geometry_group_name = new_name
 
-    def set_extras_group_name(self, new_name=''):
+    def set_extras_group_name(self, new_name='extras'):
         """
         Sets the name of the extras group of the character
         :param new_name: str
@@ -266,25 +296,48 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
             metautils.MetaAttributeUtils.connect(
                 (self, 'sub_control_size'), (rig_module, 'sub_control_size'), lock=True)
 
+    def check_groups(self):
+        """
+        Checks whether or not current character groups exists in current DCC scene or not
+        :return: bool
+        """
+
+        main_group_name = self._get_name(self.main_group_name, 'main_group', node_type='group')
+        rig_group_name = self._get_name(self.rig_group_name, 'rig_group', node_type='group')
+        geometry_group = self._get_name(self.geometry_group_name, 'geometry_group', node_type='group')
+
+        if tp.Dcc.object_exists(main_group_name):
+            tpRigToolkit.logger.warning('Group "main_group" already exists in current scene!')
+            return False
+        if tp.Dcc.object_exists(rig_group_name):
+            tpRigToolkit.logger.warning('Group "rig_group" already exists in current scene!')
+            return False
+        if tp.Dcc.object_exists(geometry_group):
+            tpRigToolkit.logger.warning('Group "geometry_group" already exists in current scene!')
+            return False
+
+        return True
+
     # ==============================================================================================
     # INTERNAL
     # ==============================================================================================
 
-    def _create_group(self, group_name, group_attr_name):
-        new_group = self.create_group('char', group_name)
+    def _create_group(self, group_name, group_attr_name, *args, **kwargs):
+        # new_group = self.create_group('char', group_name)
+        new_group = self.create_group(group_name, *args, **kwargs)
         new_group = metanode.validate_obj_arg(new_group, 'MetaObject', update_class=True)
         self.add_attribute(attr=group_attr_name, value=new_group, attr_type='messageSimple')
 
         return new_group
 
-    def _create_groups(self):
-        self._create_group(self.main_group_name, 'main_group')
-        self._create_group(self.transform_group_name, 'transform_group')
-        self._create_group(self.controls_group_name, 'controls_group')
-        self._create_group(self.rig_group_name, 'rig_group')
-        self._create_group(self.setup_group_name, 'setup_group')
-        self._create_group(self.geometry_group_name, 'geometry_group')
-        self._create_group(self.extras_group_name, 'extras_group')
+    def _create_groups(self, *args):
+        self._create_group(self.main_group_name, 'main_group', *args)
+        self._create_group(self.transform_group_name, 'transform_group', *args)
+        self._create_group(self.controls_group_name, 'controls_group', *args)
+        self._create_group(self.rig_group_name, 'rig_group', *args)
+        self._create_group(self.setup_group_name, 'setup_group', *args)
+        self._create_group(self.geometry_group_name, 'geometry_group', *args)
+        self._create_group(self.extras_group_name, 'extras_group', *args)
 
     def _setup_groups(self):
         self.transform_group.set_parent(self.main_group)

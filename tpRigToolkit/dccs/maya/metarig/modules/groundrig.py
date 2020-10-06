@@ -6,53 +6,33 @@ Module that contains ground rig implementation for metarig in Maya
 """
 
 import tpDcc as tp
-from tpDcc.dccs.maya.meta import metanode
 
-from tpRigToolkit.dccs.maya.metarig.core import module
+import tpRigToolkit
+from tpRigToolkit.dccs.maya.metarig.core import module, mixin
 from tpRigToolkit.dccs.maya.metarig.components import joint
 
 
-class GroundRig(module.RigModule, object):
+class GroundRig(module.RigModule, mixin.JointMixin):
     def __init__(self, *args, **kwargs):
         super(GroundRig, self).__init__(*args, **kwargs)
 
         if self.cached:
             return
 
+        mixin.JointMixin.__init__(self)
         self.set_name(kwargs.get('name', 'ground'))
-        self.set_ground_joint_name(self._get_name(self.base_name, 'ground', node_type='joint'))
-        self.set_create_sub_controls(True)
-        self.set_scalable(False)
 
-    def set_ground_joint_name(self, name):
-        """
-        Sets the name of the joint that will be used as the ground joint
-        NOTE: This name MUST be the final name of the joint, no naming rules will be applied to them
-        :param name:str
-        """
-
-        if not self.has_attr('ground_joint_name'):
-            self.add_attribute('ground_joint_name', value=name, attr_type='string')
-        else:
-            self.ground_joint_name = name
-
-    def set_scalable(self, flag):
-        """
-        Sets whether or not this control can be scaled
-        :param flag: bool
-        """
-
-        if not self.has_attr('scalable'):
-            self.add_attribute('scalable', flag, attr_type='bool')
-        else:
-            self.scalable = flag
-
-    def create(self, character_name, *args, **kwargs):
-        super(GroundRig, self).create(character_name, *args, **kwargs)
+    def create(self, *args, **kwargs):
+        super(GroundRig, self).create(*args, **kwargs)
 
         all_ctrls = list()
 
-        ground_joint = metanode.validate_obj_arg(self.ground_joint_name, 'MetaObject', update_class=True)
+        joints = self.get_joints()
+        if not joints:
+            tpRigToolkit.logger.warning('Impossible to create ground rig because no joints defined!')
+            return False
+
+        ground_joint = joints[0]
 
         joint_component = joint.JointComponent(name='groundJoint')
         self.add_component(joint_component)
@@ -99,3 +79,5 @@ class GroundRig(module.RigModule, object):
 
         joint_component.delete_setup()
         self.delete_setup()
+
+        return True

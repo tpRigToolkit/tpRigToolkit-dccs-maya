@@ -63,16 +63,17 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
 
         tp.Dcc.add_title_attribute(self.foot_roll_control.meta_node, 'FOOT_CONTROLS')
 
-        self._create_roll_attributes()
+        # self._create_roll_attributes()
+
         self._setup_reverse_hierarchy()
-        self._create_and_connect_ik_handles()
-
-        self._create_bank_roll()
-        self._create_mid_pivot_rotate()
-        self._create_forward_roll()
-
-        # Parent root reverse joint setup to component setup group
-        self.ankle.set_parent(self.setup_group)
+        # self._create_and_connect_ik_handles()
+        #
+        # self._create_bank_roll()
+        # self._create_mid_pivot_rotate()
+        # self._create_forward_roll()
+        #
+        # # Parent root reverse joint setup to component setup group
+        # self.ankle.set_parent(self.setup_group)
 
     # ==============================================================================================
     # BASE
@@ -279,12 +280,19 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         if not self.create_reverse_foot_hierarchy:
             return
 
-        self.mid.set_parent(self.yawout)
-        self.ball.set_parent(self.yawout)
+        self.ankle.set_parent(self.ball)
+        self.ball.set_parent(self.toe)
+        self.toe.set_parent(self.mid)
+        self.mid.set_parent(self.heel)
+        self.heel.set_parent(self.yawout)
         self.yawout.set_parent(self.yawin)
-        self.yawin.set_parent(self.heel)
-        self.heel.set_parent(self.toe)
-        self.toe.set_parent(self.ankle)
+
+        # self.mid.set_parent(self.yawout)
+        # self.ball.set_parent(self.yawout)
+        # self.yawout.set_parent(self.yawin)
+        # self.yawin.set_parent(self.heel)
+        # self.heel.set_parent(self.toe)
+        # self.toe.set_parent(self.ankle)
 
     def _create_roll_attributes(self):
         """
@@ -294,7 +302,10 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
 
         roll_control = self.foot_roll_control.meta_node
 
-        tp.Dcc.add_double_attribute(roll_control, 'weight', min_value=0, max_value=1, keyable=True)
+        tp.Dcc.add_double_attribute(roll_control, 'ballRoll', keyable=True)
+        tp.Dcc.add_double_attribute(roll_control, 'toeRoll', keyable=True)
+        tp.Dcc.add_double_attribute(roll_control, 'heelRoll', keyable=True)
+        tp.Dcc.add_double_attribute(roll_control, 'yawRoll', keyable=True)
 
     def _create_bank_roll(self):
 

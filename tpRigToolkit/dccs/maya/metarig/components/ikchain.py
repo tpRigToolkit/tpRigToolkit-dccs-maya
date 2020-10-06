@@ -344,7 +344,7 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         ik_chain = self.get_ik_chain()
 
-        buffer_joint = tp.Dcc.duplicate_object(ik_chain[self.jont_index_to_handle].meta_node, only_parent=True)
+        buffer_joint = tp.Dcc.duplicate_object(ik_chain[self.jont_index_to_handle].meta_node, only_parent=True)[0]
         tp.Dcc.set_parent(ik_chain[self.jont_index_to_handle].meta_node, buffer_joint)
         if not tp.Dcc.is_attribute_connected_to_attribute(
                 buffer_joint, 'scale', ik_chain[self.jont_index_to_handle].meta_node, 'inverseScale'):
@@ -509,7 +509,12 @@ class IkChainComponent(buffer.BufferComponent, object):
         :return: list(str)
         """
 
-        if not self.has_attr('pole_angle_joints') or not self.pole_angle_joints:
+        pole_angle_joints = self.get_pole_angle_joints(as_meta=as_meta)
+        if not pole_angle_joints:
+
+            # TODO: I do not like this code. To work this consier that the IK joints chain is composed only
+            # TODO: by 3 joints and that is not usually the case in some scenarios. Improve it.
+
             ik_chain = self.get_ik_chain(as_meta=as_meta)
             ik_chain_length = len(ik_chain)
             mid_joint_index = int(len(ik_chain) / 2)
@@ -518,8 +523,6 @@ class IkChainComponent(buffer.BufferComponent, object):
             mid_joint = ik_chain[mid_joint_index]
             pole_angle_joints = [ik_chain[0], mid_joint, ik_chain[self.jont_index_to_handle]]
             self.set_pole_angle_joints(pole_angle_joints)
-        else:
-            pole_angle_joints = self.get_pole_angle_joints(as_meta=as_meta)
 
         return pole_angle_joints
 

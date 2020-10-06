@@ -5,10 +5,8 @@
 Module that contains Ik Limb rig implementation for metarig in Maya
 """
 
-import tpDcc.dccs.maya as maya
-
 from tpRigToolkit.dccs.maya.metarig.core import module, mixin
-from tpRigToolkit.dccs.maya.metarig.components import buffer
+from tpRigToolkit.dccs.maya.metarig.components import ikchain
 
 
 class IkLimbRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
@@ -45,44 +43,14 @@ class IkLimbRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
 
         joints = self.get_joints()
 
-        buffer_rig = buffer.BufferComponent(name='ikLegBuffer')
-        self.add_component(buffer_rig)
-        buffer_rig.add_joints(joints)
-        buffer_rig.set_create_buffer_joints(
-            self.create_buffer_joints, self.switch_attribute_name, self.switch_node_name)
-        buffer_rig.set_create_sub_controls(False)
-        buffer_rig.set_buffer_replace(self.buffer_replace)
-        buffer_rig.set_create_switch(True)
-        buffer_rig.set_switch_controls_group(self.controls_group)
-        buffer_rig.create()
-        buffer_joints = buffer_rig.get_buffer_joints() or joints
-
-        if not self.message_list_get('ik_chain', as_meta=False):
-            self.message_list_connect('ik_chain', buffer_joints)
-        else:
-            self.message_list_purge('ik_chain')
-            for buffer_joint in buffer_joints:
-                self.message_list_append('ik_chain', buffer_joint)
-
-        self._create_ik_handle()
-
-        if self.create_buffer_joints:
-            ik_group = self._create_setup_group('ik')
-            buffer_joints[0].set_parent(ik_group)
-
-        self._create_top_control(force_locator=not self.create_top_control)
-        self._create_pole_vector_control()
-        self._create_bottom_control()
-
-        if self.create_pole_vector:
-            self._create_pole_vector()
-
-            if self.create_top_control:
-                maya.cmds.controller(self.pole_vector_control.meta_node, self.top_control.meta_node, p=True)
-                maya.cmds.controller(self.bottom_control.meta_node, self.pole_vector_control.meta_node, p=True)
-        else:
-            if self.create_top_control:
-                maya.cmds.controller(self.bottom_control.meta_node, self.top_control.meta_node, p=True)
+        ik_rig = ikchain.IkChainComponent(name='ikLimbRig{}'.format(self.side.title()))
+        self.add_component(ik_rig)
+        ik_rig.add_joints(joints)
+        ik_rig.set_control_data(self.control_data)
+        ik_rig.set_create_buffer_joints(self.create_buffer_joints)
+        ik_rig.set_create_sub_controls(self.create_sub_controls)
+        ik_rig.set_create_switch(True)
+        ik_rig.create()
 
     # ==============================================================================================
     # BASE

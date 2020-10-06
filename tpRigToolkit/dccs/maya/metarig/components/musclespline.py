@@ -100,6 +100,52 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
     # BASE
     # ==============================================================================================
 
+    def get_auto_control_groups(self, as_meta=True):
+        """
+        Returns all auto control groups of the muscle spline controls
+        :return: list
+        """
+
+        auto_groups = list()
+
+        controls = self.get_controls()
+        if not controls:
+            return auto_groups
+
+        for control in controls:
+            auto_group = tp.Dcc.get_message_input(control.meta_node, 'auto')
+            if not auto_group or not tp.Dcc.object_exists(auto_group):
+                continue
+            if as_meta:
+                auto_groups.append(metanode.validate_obj_arg(auto_group, 'MetaObject', update_class=True))
+            else:
+                auto_groups.append(auto_group)
+
+        return auto_groups
+
+    def get_root_control_groups(self, as_meta=True):
+        """
+        Returns all root control groups of the muscle spline controls
+        :return: list
+        """
+
+        root_groups = list()
+
+        controls = self.get_controls()
+        if not controls:
+            return root_groups
+
+        for control in controls:
+            root_group = tp.Dcc.get_message_input(control.meta_node, 'root')
+            if not root_group or not tp.Dcc.object_exists(root_group):
+                continue
+            if as_meta:
+                root_groups.append(metanode.validate_obj_arg(root_group, 'MetaObject', update_class=True))
+            else:
+                root_groups.append(root_group)
+
+        return root_groups
+
     def set_num_insertion_controls(self, value):
         if not self.has_attr('num_insertion_controls'):
             self.add_attribute(attr='num_insertion_controls', value=value)
@@ -181,7 +227,12 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
                 [source_transforms[0], source_transforms[-1]],
                 [muscle_spline.root_groups[0], muscle_spline.root_groups[-1]],
                 [muscle_spline.drivens[0], muscle_spline.drivens[-1]]):
+
             tp.Dcc.create_parent_constraint(root_group, source_transform, maintain_offset=False)
+            tp.Dcc.delete_constraints(root_group, constraint_type='parentConstraint')
+            tp.Dcc.create_point_constraint(root_group, source_transform, maintain_offset=False)
+            ori_cns = tp.Dcc.create_orient_constraint(root_group, source_transform, maintain_offset=True)
+            tp.Dcc.set_attribute_value(ori_cns, 'interpType', 2)        # Shortest
 
         # Disable jiggle attributes in muscle spline controls
         for ctrl in muscle_spline.controls:
@@ -201,6 +252,10 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         for source_transform, root_group, driven in zip(
                 source_transforms, muscle_spline.root_groups, muscle_spline.drivens):
             tp.Dcc.create_parent_constraint(root_group, source_transform, maintain_offset=False)
+            tp.Dcc.delete_constraints(root_group, constraint_type='parentConstraint')
+            tp.Dcc.create_point_constraint(root_group, source_transform, maintain_offset=False)
+            ori_cns = tp.Dcc.create_orient_constraint(root_group, source_transform, maintain_offset=True)
+            tp.Dcc.set_attribute_value(ori_cns, 'interpType', 2)        # Shortest
 
         # Disable jiggle attributes in muscle spline controls
         for ctrl in muscle_spline.controls:
@@ -226,7 +281,8 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         bendy_attr_name = 'bendy_visibility'
         if not tp.Dcc.attribute_exists(self.attributes_control.meta_node, bendy_attr_name):
             tp.Dcc.add_integer_attribute(
-                self.attributes_control.meta_node, bendy_attr_name, default_value=0, min_value=0, max_value=1)
+                self.attributes_control.meta_node, bendy_attr_name,
+                default_value=0, min_value=0, max_value=1, keyable=False)
 
         tp.Dcc.connect_attribute(
             self.attributes_control.meta_node, bendy_attr_name, controls_group.meta_node, 'visibility')

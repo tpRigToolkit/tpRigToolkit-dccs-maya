@@ -274,7 +274,7 @@ class SplineIkSkin(buffer.BufferComponent, object):
         curve_name = self._get_name(self.name, 'splineCurve', node_type='curve')
         orig_crv = curve_utils.transforms_to_curve(transforms=joints, spans=self.span_count, name=orig_curve_name)
         tp.Dcc.set_attribute_value(orig_crv, 'inheritsTransform', False)
-        new_crv = tp.Dcc.duplicate_object(orig_crv)
+        new_crv = tp.Dcc.duplicate_object(orig_crv)[0]
         tp.Dcc.rebuild_curve(
             new_crv, replace_original=True, rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False,
             keep_end_points=True, keep_tangents=False, spans=span_count, degree=3)
@@ -405,7 +405,7 @@ class SplineIkSkin(buffer.BufferComponent, object):
             self.ik_curve = crv
         else:
             if self.wire_hires:
-                self.ik_curve = tp.Dcc.duplicate_object(self.orig_curve.meta_node)
+                self.ik_curve = tp.Dcc.duplicate_object(self.orig_curve.meta_node)[0]
                 tp.Dcc.set_attribute_value(self.ik_curve.meta_node, 'inheritsTransform', True)
                 self.ik_curve = tp.Dcc.rename_node(
                     self.ik_curve.meta_node, self._get_name(self.name, node_type='curve'))
