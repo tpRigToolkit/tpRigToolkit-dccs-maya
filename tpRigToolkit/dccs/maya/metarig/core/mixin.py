@@ -815,7 +815,7 @@ class JointMixin(object):
     def add_joints(self, joints, clean=False):
         """
         Appends new joints to the module
-        :param joints: list<variant>
+        :param joints: list(MetaNode)
         """
 
         if not joints:
@@ -839,6 +839,38 @@ class JointMixin(object):
                 self.message_list_purge('joints')
             for jnt in valid_joints:
                 self.message_list_append('joints', jnt)
+
+        return valid_joints
+
+    def add_deform_joints(self, joints, clean=False):
+        """
+        Appends new deformation joints to the module
+        :param joints: list(MetaNode)
+        :param clean: bool
+        :return:
+        """
+
+        if not joints:
+            return
+
+        joints = python.force_list(joints)
+
+        valid_joints = list()
+        for jnt in joints:
+            valid_jnt = self._check_joint(jnt)
+            if valid_jnt:
+                valid_joints.append(jnt)
+
+        if len(valid_joints) <= 0:
+            return
+
+        if not self.message_list_get('deform_joints', as_meta=False):
+            self.message_list_connect('deform_joints', valid_joints)
+        else:
+            if clean:
+                self.message_list_purge('deform_joints')
+            for jnt in valid_joints:
+                self.message_list_append('deform_joints', jnt)
 
         return valid_joints
 
