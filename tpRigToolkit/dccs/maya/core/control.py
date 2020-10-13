@@ -9,8 +9,9 @@ import os
 
 import tpDcc as tp
 import tpDcc.dccs.maya as maya
-from tpDcc.dccs.maya.core import decorators, shape as shape_utils, node as node_utils, curve as curve_utils
-from tpDcc.dccs.maya.core import name as name_utils, transform as transform_utils, attribute as attr_utils
+from tpDcc.dccs.maya.core import decorators, filtertypes, shape as shape_utils, node as node_utils
+from tpDcc.dccs.maya.core import curve as curve_utils, name as name_utils, transform as transform_utils
+from tpDcc.dccs.maya.core import attribute as attr_utils, color as color_utils
 
 from tpRigToolkit.libs.controlrig.core import controllib
 
@@ -28,7 +29,7 @@ class RigControl(object):
         if not maya.cmds.objExists(self._control):
             self._create(tag)
 
-        self._shapes = shape_utils.get_shapes(self._control)
+        self._shapes = self._get_shapes()
         if not self._shapes:
             maya.logger.warning('{} has no shapes'.format(self._control))
 
@@ -40,13 +41,32 @@ class RigControl(object):
 
         return self._control
 
+    def get_rgb_color(self, linear=True):
+        """
+        Returns the RGB color of the given control, looking in the first shape node
+        :param linear: bool, Whether or not the RGB should be in linear space (matches viewport color)
+        :return: tuple(float, float, float), new control color in float linear values (between 0.0 and 1.0)
+        """
+
+        if not self._shapes:
+            return 0.0, 0.0, 0.0
+
+        return node_utils.get_rgb_color(self._shapes[0], linear=linear)
+
     def get_buffer_group(self, name='buffer'):
         """
         Returns transform group located above the control
         :return: str
         """
 
-        return transform_utils.get_buffer_group(self.get(), name)
+        return transform_utils.get_buffer_group(self._control, name)
+
+    def update_shapes(self):
+        """
+        Force the update of the internal control shapes cache
+        """
+
+        self._shapes = self._get_shapes()
 
     def translate_shape(self, x, y, z):
         """
@@ -114,7 +134,7 @@ class RigControl(object):
         """
 
         for axis in 'XYZ':
-            maya.cmds.setAttr('{}.translate{}'.format(self.get(), axis), l=False, k=True)
+            maya.cmds.setAttr('{}.translate{}'.format(self.get(), axis), lock=False, keyable=True)
 
     def show_rotate_attributes(self):
         """
@@ -122,7 +142,7 @@ class RigControl(object):
         """
 
         for axis in 'XYZ':
-            maya.cmds.setAttr('{}.rotate{}'.format(self.get(), axis), l=False, k=True)
+            maya.cmds.setAttr('{}.rotate{}'.format(self.get(), axis), lock=False, keyable=True)
 
     def show_scale_attributes(self):
         """
@@ -130,7 +150,7 @@ class RigControl(object):
         """
 
         for axis in 'XYZ':
-            maya.cmds.setAttr('{}.scale{}'.format(self.get(), axis), l=False, k=True)
+            maya.cmds.setAttr('{}.scale{}'.format(self.get(), axis), lock=False, keyable=True)
 
     def hide_attributes(self, attributes=None):
         """
@@ -213,11 +233,10 @@ class RigControl(object):
         :param value: int, Maya color override index
         """
 
-        shapes = shape_utils.get_shapes(self.get())
-        if not shapes:
+        if not self._shapes:
             return False
 
-        node_utils.set_color(shapes, value)
+        node_utils.set_color(self._shapes, value)
 
     @decorators.undo_chunk
     def set_color_rgb(self, r=0, g=0, b=0):
@@ -229,11 +248,10 @@ class RigControl(object):
         :param b: float
         """
 
-        shapes = shape_utils.get_shapes(self.get())
-        if not shapes:
+        if not self._shapes:
             return False
 
-        node_utils.set_rgb_color(shapes, [r, g, b])
+        node_utils.set_rgb_color(self._shapes, [r, g, b])
 
     @decorators.undo_chunk
     def set_rotate_order(self, xyz_order):
@@ -251,7 +269,7 @@ class RigControl(object):
             if xyz_order in xyz_orders:
                 value = xyz_orders.index(xyz_order)
 
-        return maya.cmds.setAttr('{}.rotateOrder'.format(self.get(), value))
+        return maya.cmds.setAttr('{}.rotateOrder'.format(self._control, value))
 
     @decorators.undo_chunk
     def set_curve_type(self, type_name=None):
@@ -286,7 +304,7 @@ class RigControl(object):
             color=color
         )
         controls_lib.set_shape(self._control, css)
-        self._shapes = shape_utils.get_shapes(self.get())
+        self.update_shapes()
         string_attr = attr_utils.StringAttribute('curveType')
         string_attr.create(self._control)
         string_attr.set_value(type_name)
@@ -301,10 +319,12 @@ class RigControl(object):
         :param text: str
         """
 
-        shapes = shape_utils.get_shapes(self.get())
-        color = node_utils.get_rgb_color(shapes[0])
+        if not self._shapes:
+            return False
+
+        color = node_utils.get_rgb_color(self._shapes[0])
         curve_utils.set_shapes_as_text_curve(self.get(), text)
-        self._shapes = shape_utils.get_shapes(self.get())
+        self.update_shapes()
         node_utils.set_color(self._shapes, color)
         maya.cmds.select(clear=True)
 
@@ -321,7 +341,7 @@ class RigControl(object):
 
         maya.cmds.select(clear=True)
 
-        name = self.get()
+        name = self._control
         joint_given = True
         temp_parent = None
         curve_type_value = ''
@@ -331,7 +351,7 @@ class RigControl(object):
             maya.cmds.delete(maya.cmds.parentConstraint(name, joint))
             maya.cmds.delete(maya.cmds.parentConstraint(name, joint))
             buffer_group = maya.cmds.group(empty=True, n=name_utils.find_unique_name('temp_{}'.format(joint)))
-            maya.cmds.parent(buffer_group, self.get())
+            maya.cmds.parent(buffer_group, self._control)
             maya.cmds.parent(joint, buffer_group)
             maya.cmds.makeIdentity(buffer_group, t=True, r=True, s=True, jo=True, apply=True)
             maya.cmds.parent(joint, w=True)
@@ -339,9 +359,9 @@ class RigControl(object):
             maya.cmds.delete(buffer_group)
             joint_given = False
 
-        shapes = shape_utils.get_shapes_of_type(self.get(), shape_type='nurbsCurve') or list()
-        for shape in shapes:
-            maya.cmds.parent(shape, joint, r=True, s=True)
+        if self._shapes:
+            for shape in self._shapes:
+                maya.cmds.parent(shape, joint, r=True, s=True)
 
         if joint_given:
             transform_utils.transfer_relatives(name, joint, reparent=False)
@@ -362,7 +382,7 @@ class RigControl(object):
         transfer.transfer_control(name, joint)
         attr_utils.transfer_output_connections(name, joint)
 
-        maya.cmds.setAttr('{}.radius'.format(joint), l=True, k=False, cb=False)
+        maya.cmds.setAttr('{}.radius'.format(joint), lock=True, keyable=False, cb=False)
         maya.cmds.setAttr('{}.drawStyle'.format(joint), 2)
 
         if maya.cmds.objExists('{}.curveType'.format(name)):
@@ -393,8 +413,8 @@ class RigControl(object):
         """
 
         new_name = name_utils.find_unique_name(new_name)
-        self._rename_message_groups(self.get(), new_name)
-        new_name = maya.cmds.rename(self.get(), new_name)
+        self._rename_message_groups(self._control, new_name)
+        new_name = maya.cmds.rename(self._control, new_name)
         constraints = maya.cmds.listRelatives(new_name, type='constraint')
         if constraints:
             for constraint in constraints:
@@ -402,6 +422,7 @@ class RigControl(object):
                 maya.cmds.rename(constraint, new_constraint)
         self._control = new_name
         shape_utils.rename_shapes(self._control)
+        self.update_shapes()
 
         return self._control
 
@@ -411,7 +432,7 @@ class RigControl(object):
         Deletes all control shapes
         """
 
-        self._shapes = shape_utils.get_shapes(self.get())
+        self.update_shapes()
         maya.cmds.delete(self._shapes)
         self._shapes = list()
 
@@ -425,10 +446,10 @@ class RigControl(object):
         if not shape_utils.has_shape_of_type(transform, 'nurbsCurve'):
             return
 
-        orig_shapes = shape_utils.get_shapes_of_type(self.get(), shape_type='nurbsCurve')
+        orig_shapes = shape_utils.get_shapes_of_type(self._control, shape_type='nurbsCurve')
 
         temp = maya.cmds.duplicate(transform)[0]
-        maya.cmds.parent(temp, self.get())
+        maya.cmds.parent(temp, self._control)
         maya.cmds.makeIdentity(temp, apply=True, t=True, r=True, s=True)
 
         shapes = shape_utils.get_shapes_of_type(temp, shape_type='nurbsCurve')
@@ -445,13 +466,14 @@ class RigControl(object):
                         node_utils.set_color(shape, color)
                     else:
                         node_utils.set_rgb_color(shape, [color[0], color[1], color[2]])
-                maya.cmds.parent(shape, self.get(), r=True, shape=True)
+                maya.cmds.parent(shape, self._control, r=True, shape=True)
                 index += 1
 
         maya.cmds.delete(orig_shapes)
         maya.cmds.delete(temp)
 
-        shape_utils.rename_shapes(self.get())
+        shape_utils.rename_shapes(self._control)
+        self.update_shapes()
 
     @decorators.undo_chunk
     def update_color_respect_side(self, sub=False, center_tolerance=0.001):
@@ -462,6 +484,8 @@ class RigControl(object):
         :return:str, side of the control as letter ('L', 'R' or 'C')
         """
 
+        color_value = None
+        side = 'C'
         position = maya.cmds.xform(self.get(), query=True, ws=True, t=True)
         if position[0] > 0:
             color_value = tp.Dcc.get_color_of_side('L', sub)
@@ -480,10 +504,40 @@ class RigControl(object):
 
         return side
 
+    @tp.Dcc.undo_decorator()
+    def duplicate(self, delete_shapes=False, copy_scale_tracker=True):
+        """
+        Duplicates the control generating a new transform parented to the world
+        :param delete_shapes: bool, Whether or not delete the shape nodes of the original transform node
+        :param copy_scale_tracker: bool, Whether or not scale tracker attribute should be copied
+        :return:
+        """
+
+        scale_track = list()
+        scale_default = [1.0, 1.0, 1.0]
+
+        duplicated_control = transform_utils.duplicate_transform_without_children(
+            self._control, node_name='temp_control', delete_shapes=delete_shapes)
+        if delete_shapes:
+            self.update_shapes()
+
+        if maya.cmds.listRelatives(duplicated_control, parent=True, fullPath=True):
+            duplicated_control = maya.cmds.parent(duplicated_control, world=True, absolute=True)[0]
+
+        if maya.cmds.nodeType(duplicated_control) == 'joint':
+            dup_group = maya.cmds.group(empty=True, name='tempMirror_grp')
+            maya.cmds.matchTransform([dup_group, self._control], pos=True, rot=True, scl=False, piv=False)
+            duplicated_control = transform_utils.parent_transforms_shapes(
+                dup_group, duplicated_control, delete_original=True)
+
+        if copy_scale_tracker:
+            None
+
+
     def _get_controls_lib(self):
         """
         Internal function that returns control library used to create the control
-        :return:  controllib.ControlLib
+        :return:  ControlLib
         """
 
         controls_lib = controllib.ControlLib()
@@ -507,16 +561,24 @@ class RigControl(object):
             except Exception:
                 pass
 
-    def _get_components(self):
+    def _get_components(self, update_shapes=False):
         """
         Internal function that returns the geometry components of the control curve
+        :param update_shapes: bool, Whether or not to updated the internal cache of wrapped control shapes
         :return: list(str)
         """
 
-        self._shapes = shape_utils.get_shapes(self._control)
+        if update_shapes:
+            self.update_shapes()
         return shape_utils.get_components_from_shapes(self._shapes)
 
     def _rename_message_groups(self, search_name, replace_name):
+        """
+        Internal function that renames the message groups of the control
+        :param search_name: str
+        :param replace_name: str
+        """
+
         message_attrs = attr_utils.get_message_attributes(search_name)
         if message_attrs:
             for attr_name in message_attrs:
@@ -534,6 +596,34 @@ class RigControl(object):
                         maya.cmds.rename(node, new_node)
 
 
+def get_control_rgb_color(control_name, linear=True):
+    """
+    Returns the RGB color of the given control, looking in the first shape node
+    :param control_name: str, control transform node
+    :param linear: bool, Whether or not the RGB should be in linear space (matches viewport color)
+    :return: tuple(float, float, float), new control color in float linear values (between 0.0 and 1.0)
+    """
+
+    return RigControl(control_name).get_rgb_color(linear=linear)
+
+
+def add_control_tracker_attributes(
+        control_name, translate=(1.0, 1.0, 1.0), rotate=(1.0, 1.0, 1.0), scale=(1.0, 1.0, 1.0),
+        rgb_color=None, control_type='circle'):
+    """
+    Adds tracker attributes to the given control transform node
+    :param control_name: str, name of the control transform node
+    :param translate: tuple(float, float, float), initial translation values
+    :param rotate: tuple(float, float, float), initial rotation values
+    :param scale: tuple(float, float, float), initial scale values
+    :param rgb_color: tuple(float, float, float), initial RGB color as linear float
+    :param control_type: str, initial control library type
+    """
+
+    transform_utils.add_transform_tracker_attributes(control_name, translate=translate, rotate=rotate, scale=scale)
+    color_utils.add_color_tracker_attributes(control_name, rgb_color=rgb_color)
+
+
 def rename_control(old_name, new_name):
     """
     Renames given control name with the new one
@@ -543,3 +633,8 @@ def rename_control(old_name, new_name):
     """
 
     return RigControl(old_name).rename(new_name)
+
+
+def mirror_control(source_control, target_control, mirror_axis='X', keep_color=True):
+
+    remember_selection = maya.cmds.ls(sl=True, long=True)

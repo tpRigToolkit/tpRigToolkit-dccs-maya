@@ -11,7 +11,8 @@ import logging
 import tpDcc as tp
 from tpDcc.libs.python import python, folder, fileio, path as path_utils
 import tpDcc.dccs.maya as maya
-from tpDcc.dccs.maya.core import api, shape as shape_utils
+from tpDcc.dccs.maya import api
+from tpDcc.dccs.maya.core import shape as shape_utils
 
 from tpRigToolkit.core import utils
 from tpRigToolkit.dccs.maya.data import curves

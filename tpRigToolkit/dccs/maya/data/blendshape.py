@@ -182,12 +182,12 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
             return False
 
         if not tp.Dcc.is_plugin_loaded('SHAPESTools'):
-            valid_load = tp.Dcc.load_plugin('SHAPESTools')
+            valid_load = tp.Dcc.register_plugin('SHAPESTools')
             if not valid_load:
                 maya.logger.warning('Shapes is not installed. Impossible to export SHAPES data.')
                 return False
         if not tp.Dcc.is_plugin_loaded('weightDriver'):
-            tp.Dcc.load_plugin('weightDriver')
+            tp.Dcc.register_plugin('weightDriver')
 
         # We force the load of SHAPES scripts
         for shape_script in [

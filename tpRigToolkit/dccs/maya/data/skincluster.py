@@ -562,7 +562,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
 
         try:
             if not tp.Dcc.is_plugin_loaded('ngSkinTools2'):
-                tp.Dcc.load_plugin('ngSkinTools2')
+                tp.Dcc.register_plugin('ngSkinTools2')
             import ngSkinTools2
             from ngSkinTools2 import api as ngst_api
         except ImportError:
@@ -688,7 +688,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
 
         try:
             if not tp.Dcc.is_plugin_loaded('ngSkinTools2'):
-                tp.Dcc.load_plugin('ngSkinTools2')
+                tp.Dcc.register_plugin('ngSkinTools2')
             import ngSkinTools2
             from ngSkinTools2 import api as ngst_api
         except ImportError:
