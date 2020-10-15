@@ -10,7 +10,7 @@ from __future__ import print_function, division, absolute_import
 import tpDcc as tp
 import tpDcc.dccs.maya as maya
 from tpDcc.dccs.maya.meta import metanode
-from tpDcc.dccs.maya.core import ik as ik_utils, constraint as cns_utils
+from tpDcc.dccs.maya.core import ik as ik_utils, constraint as cns_utils, animation as anim_utils
 
 import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import component, mixin
@@ -25,16 +25,18 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
             return
 
         mixin.JointMixin.__init__(self)
-        self.set_foot_roll_control(None)
         self.set_ik_leg_control(None)
         self.set_create_roll_control(True)
+        self.set_roll_control(None)
+        self.set_roll_control_data(dict())
         self.set_mirror_yaw(False)
         self.set_forward_roll_axis('Y')
         self.set_side_roll_axis('X')
         self.set_top_roll_axis('Z')
         self.set_toe_control_data(dict())
-        self.set_roll_control_data(dict())
         self.set_create_reverse_foot_hierarchy(False)
+        self.set_create_pivot_manipulators(True)
+        self.set_pivot_translate_axis('Y')
 
     # ==============================================================================================
     # OVERRIDES
@@ -58,22 +60,35 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         self.add_attribute('ball', value=reverse_foot_joints[5], attr_type='messageSimple')
         self.add_attribute('ankle', value=reverse_foot_joints[6], attr_type='messageSimple')
 
-        if not self.foot_roll_control:
+        if not self.roll_control and self.create_roll_control:
             self._create_roll_control()
 
-        tp.Dcc.add_title_attribute(self.foot_roll_control.meta_node, 'FOOT_CONTROLS')
+        tp.Dcc.add_title_attribute(self.ik_leg_control.meta_node, 'FOOT_CONTROLS')
 
-        # self._create_roll_attributes()
+        self._create_roll_attributes()
 
         self._setup_reverse_hierarchy()
-        # self._create_and_connect_ik_handles()
-        #
-        # self._create_bank_roll()
-        # self._create_mid_pivot_rotate()
-        # self._create_forward_roll()
-        #
-        # # Parent root reverse joint setup to component setup group
-        # self.ankle.set_parent(self.setup_group)
+        self._create_and_connect_ik_handles()
+
+        self._create_bank_roll()
+        self._create_mid_pivot_rotate()
+        self._create_forward_roll()
+
+        self._create_pivot_manipulators()
+
+        # Parent root reverse joint setup to component setup group
+        if self.create_pivot_manipulators:
+            self.yawin_pivot_group.set_parent(self.setup_group)
+            if self.ik_leg_control:
+                tp.Dcc.create_parent_constraint(
+                    self.yawin_pivot_group.meta_node, self.ik_leg_control.meta_node, maintain_offset=True)
+        else:
+            # self.ankle.set_parent(self.setup_group)
+            # self.yawin.set_parent(self.setup_group
+            reverse_foot_joints[0].set_parent(self.setup_group)
+            if self.ik_leg_control:
+                tp.Dcc.create_parent_constraint(
+                    reverse_foot_joints[0].meta_node, self.ik_leg_control.meta_node, maintain_offset=True)
 
     # ==============================================================================================
     # BASE
@@ -100,17 +115,17 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
             for jnt in joints:
                 self.message_list_append('reverse_foot_joints', jnt)
 
-    def set_foot_roll_control(self, control):
+    def set_roll_control(self, control):
         """
         Sets the main control used by foot roll rig setup
         :param control:
         :return:
         """
 
-        if not self.has_attr('foot_roll_control'):
-            self.add_attribute('foot_roll_control', value=control, attr_type='messageSimple')
+        if not self.has_attr('roll_control'):
+            self.add_attribute('roll_control', value=control, attr_type='messageSimple')
         else:
-            self.foot_roll_control = control
+            self.roll_control = control
 
     def set_create_roll_control(self, flag):
         """
@@ -122,6 +137,28 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
             self.add_attribute('create_roll_control', value=flag, attr_type='bool')
         else:
             self.create_roll_control = flag
+
+    def set_roll_control_data(self, control_data):
+        """
+        Sets the control data used by the roll control
+        :param control_data: dict
+        """
+
+        if not self.has_attr('roll_control_data'):
+            self.add_attribute(attr='roll_control_data', value=control_data)
+        else:
+            self.roll_control_data = control_data
+
+    def set_pivot_control_data(self, control_data):
+        """
+        Sets the control data used by the pivot controls
+        :param control_data: dict
+        """
+
+        if not self.has_attr('pivot_control_data'):
+            self.add_attribute(attr='pivot_control_data', value=control_data)
+        else:
+            self.pivot_control_data = control_data
 
     def set_mirror_yaw(self, flag):
         """
@@ -168,6 +205,17 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         else:
             self.top_roll_axis = axis.upper()
 
+    def set_pivot_translate_axis(self, axis):
+        """
+        Sets pivot translate axis used for pivot setup
+        :param axis: str
+        """
+
+        if not self.has_attr('pivot_translate_axis'):
+            self.add_attribute('pivot_translate_axis', value=axis.upper(), attr_type='string')
+        else:
+            self.pivot_translate_axis = axis.upper()
+
     def set_toe_control_data(self, control_data):
         """
         Sets the control data used by the toe control
@@ -190,21 +238,10 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         else:
             self.ik_leg_control = control
 
-    def set_roll_control_data(self, control_data):
-        """
-        Sets the control data used by the roll control
-        :param control_data: dict
-        """
-
-        if not self.has_attr('roll_control_data'):
-            self.add_attribute(attr='roll_control_data', value=control_data)
-        else:
-            self.roll_control_data = control_data
-
     def set_create_reverse_foot_hierarchy(self, flag):
         """
         Sets whether or not reverse foot hierarchy should be created automatically
-        :param flag:
+        :param flag: bool
         :return:
         """
 
@@ -213,13 +250,26 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         else:
             self.create_reverse_foot_hierarchy = flag
 
+    def set_create_pivot_manipulators(self, flag):
+        """
+        Sets whether or not reverse foot pivot manipulator is created
+        This allow animator to set the reverse foot roll rotation pivots on the fly
+        :param flag: bool
+        :return:
+        """
+
+        if not self.has_attr('create_pivot_manipulators'):
+            self.add_attribute(attr='create_pivot_manipulators', value=flag)
+        else:
+            self.create_pivot_manipulators = flag
+
     # ==============================================================================================
     # INTERNAL
     # ==============================================================================================
 
     def _create_roll_control(self, transform=None):
         """
-        Internal function that creates the roll control for this rig setup
+        Internal function that creates the foot control for this rig setup
         :param transform:
         :return:
         """
@@ -227,16 +277,18 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         roll_control = self.create_control('roll', control_data=self.roll_control_data)
         roll_control.scale_control_shapes((0.8, 0.8, 0.8))
         roll_control.create_root()
+        roll_control.hide_translate_attributes()
         roll_control.hide_scale_and_visibility_attributes()
 
-        transform = transform or self.ik_leg_control
+        transform = transform or self.ball
         if transform:
             roll_control.match_translation_and_rotation(transform)
 
-        self.set_foot_roll_control(roll_control)
+        self.set_roll_control(roll_control)
 
         if self.ik_leg_control:
-            roll_control.set_parent(self.ik_leg_control)
+            tp.Dcc.create_parent_constraint(
+                roll_control.top().meta_node, self.ik_leg_control.meta_node, maintain_offset=True)
 
     def _create_and_connect_ik_handles(self):
         """
@@ -294,22 +346,34 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         # self.heel.set_parent(self.toe)
         # self.toe.set_parent(self.ankle)
 
+        # Reverse joint display is disabled by default
+        # for reverse_joint in [self.ankle, self.ball, self.toe, self.mid, self.heel, self.yawout, self.yawin]:
+        #     tp.Dcc.set_attribute_value(reverse_joint.meta_node, 'drawStyle', 2)
+
     def _create_roll_attributes(self):
         """
         Internal function that creates basic roll attributes
         :return:
         """
 
-        roll_control = self.foot_roll_control.meta_node
+        foot_control = self.ik_leg_control
+        if not foot_control:
+            return
 
-        tp.Dcc.add_double_attribute(roll_control, 'ballRoll', keyable=True)
-        tp.Dcc.add_double_attribute(roll_control, 'toeRoll', keyable=True)
-        tp.Dcc.add_double_attribute(roll_control, 'heelRoll', keyable=True)
-        tp.Dcc.add_double_attribute(roll_control, 'yawRoll', keyable=True)
+        foot_control = foot_control.meta_node
+
+        tp.Dcc.add_double_attribute(foot_control, 'ballRoll', keyable=True)
+        tp.Dcc.add_double_attribute(foot_control, 'toeRoll', keyable=True)
+        tp.Dcc.add_double_attribute(foot_control, 'heelRoll', keyable=True)
+        tp.Dcc.add_double_attribute(foot_control, 'yawRoll', keyable=True)
 
     def _create_bank_roll(self):
 
-        roll_control = self.foot_roll_control.meta_node
+        roll_control = self.roll_control
+        if not roll_control:
+            return
+
+        roll_control = roll_control.meta_node
 
         bank_cond = maya.cmds.createNode('condition', name=self._get_name(self.name, 'bankRoll', node_type='condition'))
         tp.Dcc.set_attribute_value(bank_cond, 'operation', 2)   # Greater Than
@@ -322,7 +386,11 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
 
     def _create_mid_pivot_rotate(self):
 
-        roll_control = self.foot_roll_control.meta_node
+        roll_control = self.roll_control
+        if not roll_control:
+            return
+
+        roll_control = roll_control.meta_node
 
         tp.Dcc.connect_attribute(
             roll_control, 'rotate{}'.format(self.top_roll_axis),
@@ -330,7 +398,11 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
 
     def _create_forward_roll(self):
 
-        roll_control = self.foot_roll_control.meta_node
+        roll_control = self.roll_control
+        if not roll_control:
+            return
+
+        roll_control = roll_control.meta_node
 
         forward_cond = maya.cmds.createNode(
             'condition', name=self._get_name(self.name, 'forwardRoll', node_type='condition'))
@@ -342,6 +414,9 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
         tp.Dcc.connect_attribute(
             forward_cond, 'outColorR', self.heel.meta_node, 'rotate{}'.format(self.forward_roll_axis))
 
+        if not tp.Dcc.attribute_exists(roll_control, 'weight'):
+            tp.Dcc.add_float_attribute(roll_control, 'weight', min_value=0.0, max_value=1.0)
+
         forward_blend = maya.cmds.createNode(
             'blendColors', name=self._get_name(self.name, 'forwardRoll', node_type='blendColors'))
         tp.Dcc.connect_attribute(roll_control, 'weight', forward_blend, 'blender')
@@ -351,6 +426,177 @@ class ReverseFootRollComponent(component.RigComponent, mixin.JointMixin):
             forward_blend, 'outputR', self.toe.meta_node, 'rotate{}'.format(self.forward_roll_axis))
         tp.Dcc.connect_attribute(
             forward_blend, 'outputG', self.ball.meta_node, 'rotate{}'.format(self.forward_roll_axis))
+
+    def _create_pivot_manipulators(self):
+        if not self.create_pivot_manipulators:
+            return
+
+        # Recreate reverse hierarchy to make sure that bank joints have a buffer group
+        # IMPORTANT: This will make the buffer group of yawin to be the root of the reverse chain.
+        yawin_pivot_group = tp.Dcc.create_empty_group(name=self._get_name(self.name, 'yawInPivot', node_type='group'))
+        yawin_pivot_group = metanode.validate_obj_arg(yawin_pivot_group, 'MetaObject', update_class=True)
+        tp.Dcc.match_translation_rotation(self.yawin.meta_node, yawin_pivot_group.meta_node)
+        yawout_pivot_group = tp.Dcc.create_empty_group(
+            name=self._get_name(self.name, 'yawOutPivot', node_type='group'))
+        yawout_pivot_group = metanode.validate_obj_arg(yawout_pivot_group, 'MetaObject', update_class=True)
+        tp.Dcc.match_translation_rotation(self.yawout.meta_node, yawout_pivot_group.meta_node)
+        heel_pivot_group = tp.Dcc.create_empty_group(name=self._get_name(self.name, 'heelPivot', node_type='group'))
+        heel_pivot_group = metanode.validate_obj_arg(heel_pivot_group, 'MetaObject', update_class=True)
+        tp.Dcc.match_translation_rotation(self.heel.meta_node, heel_pivot_group.meta_node)
+
+        yawin_parent = tp.Dcc.node_parent(self.yawin.meta_node)
+        self.yawin.set_parent(yawin_pivot_group)
+        yawout_pivot_group.set_parent(self.yawin)
+        self.yawout.set_parent(yawout_pivot_group)
+        self.heel.set_parent(heel_pivot_group)
+        heel_pivot_group.set_parent(self.yawout)
+        if yawin_parent:
+            tp.Dcc.set_parent(yawin_pivot_group.meta_node, yawin_parent)
+
+        bank_in_pivot_control = self.create_control('bankInPivot', control_data=self.pivot_control_data)
+        bank_in_pivot_control.create_root()
+        bank_in_pivot_control.match_translation_and_rotation(self.yawin.meta_node)
+        bank_in_pivot_control.hide_scale_and_visibility_attributes()
+        bank_in_pivot_control.hide_rotate_attributes()
+
+        bank_out_pivot_control = self.create_control('bankOutPivot', control_data=self.pivot_control_data)
+        bank_out_pivot_control.create_root()
+        bank_out_pivot_control.match_translation_and_rotation(self.yawout.meta_node)
+        bank_out_pivot_control.hide_scale_and_visibility_attributes()
+        bank_out_pivot_control.hide_rotate_attributes()
+
+        for axis in 'XYZ':
+            if axis == self.pivot_translate_axis.upper():
+                continue
+            attr_name = 'translate{}'.format(axis)
+            tp.Dcc.lock_attribute(bank_out_pivot_control.meta_node, attr_name)
+            tp.Dcc.hide_attribute(bank_out_pivot_control.meta_node, attr_name)
+            tp.Dcc.hide_attribute(bank_in_pivot_control.meta_node, attr_name)
+            tp.Dcc.lock_attribute(bank_in_pivot_control.meta_node, attr_name)
+
+        # TODO: This should be a property of the component (and the rig module it belongs it). In the last term,
+        # TODO: this property should be fined in the character/project
+        is_mirror = True
+
+        # TODO: This property should be defined in the component
+        dst_to_move = 10
+
+        if is_mirror:
+            self._setup_pivot_manipulators_mirror_driven_keys(
+                bank_in_pivot_control, bank_out_pivot_control, dst_to_move)
+        else:
+            self._setup_pivot_manipulators_driven_keys(bank_in_pivot_control, bank_out_pivot_control, dst_to_move)
+
+        if self.ik_leg_control:
+            tp.Dcc.create_parent_constraint(
+                bank_in_pivot_control.top().meta_node, self.ik_leg_control.meta_node, maintain_offset=True)
+            tp.Dcc.create_parent_constraint(
+                bank_out_pivot_control.top().meta_node, self.ik_leg_control.meta_node, maintain_offset=True)
+
+        self.add_attribute('yawin_pivot_group', value=yawin_pivot_group, attr_type='messageSimple')
+        self.add_attribute('bank_in_pivot_control', value=bank_in_pivot_control, attr_type='messageSimple')
+        self.add_attribute('bank_out_pivot_control', value=bank_out_pivot_control, attr_type='messageSimple')
+
+    def _setup_pivot_manipulators_driven_keys(self, bank_in_pivot_control, bank_out_pivot_control, dst_to_move):
+
+        bank_in_driver_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_in_driver_attr = '{}.{}'.format(bank_in_pivot_control.meta_node, bank_in_driver_attr_name)
+        current_in_driver_attr_value = tp.Dcc.get_attribute_value(
+            bank_in_pivot_control.meta_node, bank_in_driver_attr_name)
+        bank_in_driven_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_in_driven_attr = '{}.{}'.format(self.yawin.meta_node, bank_in_driven_attr_name)
+        current_in_driven_attr_value = tp.Dcc.get_attribute_value(self.yawin.meta_node, bank_in_driven_attr_name)
+
+        bank_out_driver_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_out_driver_attr = '{}.{}'.format(bank_out_pivot_control.meta_node, bank_out_driver_attr_name)
+        current_out_driver_attr_value = tp.Dcc.get_attribute_value(
+            bank_out_pivot_control.meta_node, bank_out_driver_attr_name)
+        bank_out_driven_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_out_driven_attr = '{}.{}'.format(self.yawout.meta_node, bank_out_driven_attr_name)
+        current_out_driven_attr_value = tp.Dcc.get_attribute_value(self.yawout.meta_node, bank_out_driven_attr_name)
+
+        heel_driven_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        heel_driven_attr = '{}.{}'.format(self.heel.meta_node, heel_driven_attr_name)
+        heel_driven_attr_value = tp.Dcc.get_attribute_value(self.heel.meta_node, heel_driven_attr_name)
+
+        anim_utils.quick_driven_key(
+            source=bank_in_driver_attr, target=bank_in_driven_attr,
+            source_values=[current_in_driver_attr_value, -dst_to_move, dst_to_move],
+            target_values=[current_in_driven_attr_value, current_in_driven_attr_value - dst_to_move,
+                           current_in_driven_attr_value + dst_to_move],
+            infinite=True)
+
+        anim_utils.quick_driven_key(
+            source=bank_in_driver_attr, target=bank_out_driven_attr,
+            source_values=[current_in_driver_attr_value, -dst_to_move, dst_to_move],
+            target_values=[current_out_driven_attr_value, current_out_driven_attr_value + dst_to_move,
+                           current_out_driven_attr_value - dst_to_move],
+            infinite=True)
+
+        anim_utils.quick_driven_key(
+            source=bank_out_driver_attr, target=bank_out_driven_attr,
+            source_values=[current_out_driver_attr_value, dst_to_move, -dst_to_move],
+            target_values=[current_out_driven_attr_value, current_out_driven_attr_value + dst_to_move,
+                           current_out_driven_attr_value - dst_to_move], infinite=True)
+
+        anim_utils.quick_driven_key(
+            source=bank_out_driver_attr, target=heel_driven_attr,
+            source_values=[current_out_driver_attr_value, dst_to_move, -dst_to_move],
+            target_values=[heel_driven_attr_value, heel_driven_attr_value - dst_to_move,
+                           current_out_driven_attr_value + dst_to_move], infinite=True)
+
+    def _setup_pivot_manipulators_mirror_driven_keys(self, bank_in_pivot_control, bank_out_pivot_control, dst_to_move):
+
+        is_right = tp.Dcc.name_is_right(self.side)
+
+        bank_in_driver_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_in_driver_attr = '{}.{}'.format(bank_in_pivot_control.meta_node, bank_in_driver_attr_name)
+        current_in_driver_attr_value = tp.Dcc.get_attribute_value(
+            bank_in_pivot_control.meta_node, bank_in_driver_attr_name)
+        bank_in_driven_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_in_driven_attr = '{}.{}'.format(self.yawin.meta_node, bank_in_driven_attr_name)
+        current_in_driven_attr_value = tp.Dcc.get_attribute_value(self.yawin.meta_node, bank_in_driven_attr_name)
+
+        bank_out_driver_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_out_driver_attr = '{}.{}'.format(bank_out_pivot_control.meta_node, bank_out_driver_attr_name)
+        current_out_driver_attr_value = tp.Dcc.get_attribute_value(
+            bank_out_pivot_control.meta_node, bank_out_driver_attr_name)
+        bank_out_driven_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        bank_out_driven_attr = '{}.{}'.format(self.yawout.meta_node, bank_out_driven_attr_name)
+        current_out_driven_attr_value = tp.Dcc.get_attribute_value(self.yawout.meta_node, bank_out_driven_attr_name)
+
+        heel_driven_attr_name = 'translate{}'.format(self.pivot_translate_axis.upper())
+        heel_driven_attr = '{}.{}'.format(self.heel.meta_node, heel_driven_attr_name)
+        heel_driven_attr_value = tp.Dcc.get_attribute_value(self.heel.meta_node, heel_driven_attr_name)
+
+        anim_utils.quick_driven_key(
+            source=bank_in_driver_attr, target=bank_in_driven_attr,
+            source_values=[current_in_driver_attr_value, -dst_to_move, dst_to_move],
+            target_values=[current_in_driven_attr_value, current_in_driven_attr_value - (
+                -dst_to_move if is_right else dst_to_move),
+                           current_in_driven_attr_value + (-dst_to_move if is_right else dst_to_move)],
+            infinite=True)
+
+        anim_utils.quick_driven_key(
+            source=bank_in_driver_attr, target=bank_out_driven_attr,
+            source_values=[current_in_driver_attr_value, -dst_to_move, dst_to_move],
+            target_values=[current_out_driven_attr_value, current_out_driven_attr_value + (
+                -dst_to_move if is_right else dst_to_move),
+                           current_out_driven_attr_value - (-dst_to_move if is_right else dst_to_move)],
+            infinite=True)
+
+        anim_utils.quick_driven_key(
+            source=bank_out_driver_attr, target=bank_out_driven_attr,
+            source_values=[current_out_driver_attr_value, dst_to_move, -dst_to_move],
+            target_values=[current_out_driven_attr_value, current_out_driven_attr_value + (
+                -dst_to_move if is_right else dst_to_move),
+                           current_out_driven_attr_value - (-dst_to_move if is_right else dst_to_move)], infinite=True)
+
+        anim_utils.quick_driven_key(
+            source=bank_out_driver_attr, target=heel_driven_attr,
+            source_values=[current_out_driver_attr_value, dst_to_move, -dst_to_move],
+            target_values=[heel_driven_attr_value, heel_driven_attr_value - (-dst_to_move if is_right else dst_to_move),
+                           current_out_driven_attr_value + (-dst_to_move if is_right else dst_to_move)], infinite=True)
 
 
 class ExpressionReverseFootRollComponent(ReverseFootRollComponent, object):
@@ -362,8 +608,7 @@ class ExpressionReverseFootRollComponent(ReverseFootRollComponent, object):
             return
 
         self.set_name(kwargs.get('name', 'footRoll'))
-        self.set_foot_roll_control(None)
-        self.set_ik_leg_control(None)
+        self.set_foot_control(None)
 
     # ==============================================================================================
     # OVERRIDES
@@ -376,7 +621,7 @@ class ExpressionReverseFootRollComponent(ReverseFootRollComponent, object):
 
     def _create_roll_attributes(self):
 
-        roll_control = self.foot_roll_control.meta_node
+        roll_control = self.foot_control.meta_node
 
         tp.Dcc.add_double_attribute(roll_control, 'footRoll', keyable=True)
         tp.Dcc.add_double_attribute(roll_control, 'toeLift', default_value=45, keyable=True)
@@ -404,7 +649,7 @@ class ExpressionReverseFootRollComponent(ReverseFootRollComponent, object):
         Internal function that creates foot roll expressions
         """
 
-        roll_control = tp.Dcc.node_short_name(self.foot_roll_control.meta_node)
+        roll_control = tp.Dcc.node_short_name(self.foot_control.meta_node)
         yaw_in_joint = tp.Dcc.node_short_name(self.yawin.meta_node)
         yaw_out_joint = tp.Dcc.node_short_name(self.yawout.meta_node)
         heel_joint = tp.Dcc.node_short_name(self.heel.meta_node)
