@@ -25,7 +25,7 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
 
         mixin.JointMixin.__init__(self)
         self.set_name(kwargs.get('name', 'footRoll'))
-        self.set_foot_roll_control(None)
+        self.set_foot_control(None)
         self.set_create_roll_controls(True)
         self.set_create_foot_roll(False)
         self.set_create_ankle_roll(False)

@@ -10,14 +10,13 @@ from __future__ import print_function, division, absolute_import
 import os
 
 import tpDcc as tp
-from tpDcc.libs.python import mathlib
+from tpDcc.libs.curves.core import curveslib
 
 import tpDcc.dccs.maya as maya
 from tpDcc.dccs.maya.core import transform, attribute, shape
 from tpDcc.dccs.maya.meta import metaobject, metautils
 
 import tpRigToolkit
-from tpRigToolkit.libs.controlrig.core import controllib
 
 
 class RigControl(metaobject.MetaObject, object):
@@ -48,7 +47,9 @@ class RigControl(metaobject.MetaObject, object):
         node_to_parent = self.meta_node
 
         if parent_top:
-            if self.has_attr('root_group') and self.root_group.is_valid_mobject():
+            if self.has_attr('mirror_group') and self.mirror_group.is_valid_mobject():
+                node_to_parent = self.mirror_group.meta_node
+            elif self.has_attr('root_group') and self.root_group.is_valid_mobject():
                 node_to_parent = self.root_group.meta_node
             else:
                 if self.has_attr('auto_group') and self.auto_group.is_valid_mobject():
@@ -81,7 +82,7 @@ class RigControl(metaobject.MetaObject, object):
         target = self._get_top_group()
         source = source.meta_node if hasattr(source, 'meta_node') else source
 
-        transform.snap(target, source, snap_pivot)
+        transform.snap(target.meta_node, source, snap_pivot)
 
     def match_translation(self, source):
         """
@@ -93,7 +94,12 @@ class RigControl(metaobject.MetaObject, object):
         target = self._get_top_group()
         source = source.meta_node if hasattr(source, 'meta_node') else source
 
-        transform.match_translation(target.meta_node, source)
+        maya.cmds.delete(maya.cmds.pointConstraint(source, target.meta_node))
+        # transform.match_translation(target.meta_node, source)
+
+        if tp.Dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
+            # tp.Dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
+            tp.Dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
 
     def match_rotation(self, source):
         """
@@ -105,7 +111,12 @@ class RigControl(metaobject.MetaObject, object):
         target = self._get_top_group()
         source = source.meta_node if hasattr(source, 'meta_node') else source
 
-        transform.match_rotation(target.meta_node, source)
+        maya.cmds.delete(maya.cmds.orientConstraint(source, target.meta_node))
+        # transform.match_rotation(target.meta_node, source)
+
+        if tp.Dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
+            # tp.Dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
+            tp.Dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
 
     def match_translation_and_rotation(self, source):
         """
@@ -117,7 +128,13 @@ class RigControl(metaobject.MetaObject, object):
         target = self._get_top_group()
         source = source.meta_node if hasattr(source, 'meta_node') else source
 
-        transform.match_translation_rotation(target.meta_node, source)
+        maya.cmds.delete(maya.cmds.pointConstraint(source, target.meta_node))
+        maya.cmds.delete(maya.cmds.orientConstraint(source, target.meta_node))
+        # transform.match_translation_rotation(target.meta_node, source)
+
+        if tp.Dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
+            # tp.Dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
+            tp.Dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
 
     def match_scale(self, source):
         """
@@ -139,11 +156,6 @@ class RigControl(metaobject.MetaObject, object):
         """
         Returns the rig module this controls is linked to
         :return: RigModule or None
-        """
-
-        """
-        Returns the character linked to this module
-        :return:
         """
 
         if not self.has_attr('rig_module'):
@@ -234,16 +246,16 @@ class RigControl(metaobject.MetaObject, object):
         else:
             self.control_data = control_dict
 
-    def set_controls_file(self, file_path):
+    def set_controls_path(self, file_path):
         """
         Sets the controls file path used to create this control
         :param file_path: str
         """
 
-        if not self.has_attr('controls_file'):
-            self.add_attribute('controls_file', file_path, attr_type='string')
+        if not self.has_attr('controls_path'):
+            self.add_attribute('controls_path', file_path, attr_type='string')
         else:
-            self.controls_file = file_path
+            self.controls_path = file_path
 
     def create_root(self, group_name='root', *args, **kwargs):
         """
@@ -251,8 +263,11 @@ class RigControl(metaobject.MetaObject, object):
         :param group_name: str, name of node to be the new root of the control
         """
 
+        ignore_warnings = kwargs.get('ignore_warnings', False)
+
         if self.has_attr('root_group') and maya.cmds.objExists(self.root_group.meta_node):
-            tpRigToolkit.logger.warning('Impossible to create root group because it already exists!')
+            if not ignore_warnings:
+                tpRigToolkit.logger.warning('Impossible to create root group because it already exists!')
             return self.root_group
 
         base_name = self.name if self.has_attr('name') and self.name else self.base_name
@@ -268,12 +283,38 @@ class RigControl(metaobject.MetaObject, object):
         else:
             new_group = self._create_group(base_name, group_name, *args, **kwargs)
 
+        # MIRROR BEHAVIOUR
+        # TODO: This should be optional
+        mirror_group = None
+        if tp.Dcc.name_is_right(self.side):
+            if parsed_name:
+                # TODO: Allow to put the root in the first key (prefix) or in the last one (suffix)
+                parsed_name[list(parsed_name.keys())[-1]] = 'mirror'
+                kwargs.update(parsed_name)
+                mirror_group = self._create_group(force_suffix=False, *args, **kwargs)
+            else:
+                mirror_group = self._create_group(base_name, group_name, *args, **kwargs)
+            tp.Dcc.set_attribute_value(mirror_group.meta_node, 'scaleX', -1)
+            mirror_group.set_parent(self.get_parent())
+            self.add_attribute(attr='mirror_group', value=mirror_group, attr_type='messageSimple')
+
         self.add_attribute(attr='root_group', value=new_group, attr_type='messageSimple')
         if not self.has_attr('auto_group'):
-            new_group.set_parent(self.get_parent())
-            self.set_parent(new_group, parent_top=False)
+            if mirror_group:
+                new_group.set_parent(mirror_group)
+                self.set_parent(new_group, parent_top=False)
+                for xform in 'trs':
+                    for axis in 'xyz':
+                        attr_value = 1.0 if xform == 's' else 0.0
+                        tp.Dcc.set_attribute_value(new_group.meta_node, '{}{}'.format(xform, axis), attr_value)
+            else:
+                new_group.set_parent(self.get_parent())
+                self.set_parent(new_group, parent_top=False)
         else:
-            new_group.set_parent(self.auto_group.get_parent())
+            if mirror_group:
+                new_group.set_parent(mirror_group)
+            else:
+                new_group.set_parent(self.auto_group.get_parent())
             self.auto_group.set_parent(new_group)
 
         if not self.has_attr('root_group'):
@@ -309,8 +350,13 @@ class RigControl(metaobject.MetaObject, object):
         self.add_attribute(attr='auto_group', value=new_group, attr_type='messageSimple')
         new_group.set_parent(self.get_parent())
         self.set_parent(new_group, parent_top=False)
-        if self.has_attr('root_group') and not new_group.get_parent(as_meta=True) == self.root_group:
-            new_group.set_parent(self.root_group)
+        if self.has_attr('root_group'):
+            if not new_group.get_parent(as_meta=True) == self.root_group:
+                new_group.set_parent(self.root_group)
+            for xform in 'trs':
+                for axis in 'xyz':
+                    attr_value = 1.0 if xform == 's' else 0.0
+                    tp.Dcc.set_attribute_value(new_group.meta_node, '{}{}'.format(xform, axis), attr_value)
 
         if not self.has_attr('auto_group'):
             self.add_attribute(attr='auto_group', value=new_group, attr_type='messageSimple')
@@ -348,7 +394,9 @@ class RigControl(metaobject.MetaObject, object):
         :return:
         """
 
-        if self.has_attr('root_group') and self.root_group.is_valid_mobject():
+        if self.has_attr('mirror_group') and self.mirror_group.is_valid_mobject():
+            return self.mirror_group
+        elif self.has_attr('root_group') and self.root_group.is_valid_mobject():
             return self.root_group
         else:
             if self.has_attr('auto_group') and self.auto_group.is_valid_mobject():
@@ -525,48 +573,34 @@ class RigControl(metaobject.MetaObject, object):
 
         curve_type = None
         if control_data:
-            curve_type = control_data.get('control_name', None)
+            curve_type = control_data.get('control_type', None)
         if not curve_type:
             curve_type = self.type if self.has_attr('type') else 'circle'
 
-        controls_lib = controllib.ControlLib()
-        controls_file = None
+        controls_path = None
+        if self.has_attr('controls_path') and os.path.isdir(self.controls_path):
+            controls_path = self.controls_path
+        elif rig_module and rig_module.has_attr('controls_path') and \
+                rig_module.controls_path and os.path.isfile(rig_module.controls_path):
+            controls_path = rig_module.controls_path
+        controls_path = controls_path if controls_path and os.path.isdir(controls_path) else None
 
-        if self.has_attr('controls_file') and os.path.isfile(self.controls_file):
-            controls_file = self.controls_file
-        elif rig_module and rig_module.has_attr('controls_file') and \
-                rig_module.controls_file and os.path.isfile(rig_module.controls_file):
-            controls_file = rig_module.controls_file
-
-        if controls_file and os.path.isfile(controls_file):
-            controls_lib.controls_file = controls_file
-
-        data = controls_lib.get_control_data_by_name(curve_type)
-
-        size = control_data.pop('size', 1.0)
-        name = control_data.pop('name', 'tempControl')
-        shape_parent = control_data.pop('shape_parent', True)
-
-        data_color = control_data.pop('color', [1.0, 1.0, 1.0])
-        color = self.color if self.has_attr('color') and self.color else data_color
+        color = self.color if self.has_attr('color') and self.color else control_data.get('color', (1.0, 1.0, 1.0))
 
         if self.has_attr('size'):
-            size = size * self.size
+            size = self.size * control_data.get('control_size', 1.0)
+            if size != self.size:
+                self.size = size
+        else:
+            size = control_data.get('control_size', 1.0)
+            self.size = size
 
         # We scale the offset taking into account the module size
-        offset = control_data.pop('offset', [0.0, 0.0, 0.0])
-        control_data['offset'] = (mathlib.Vector(*offset) * size).list()
+        # offset = (mathlib.Vector(*[0.0, 0.0, 0.0]) * size).list()
 
-        ccs = controls_lib.create_control(
-            shape_data=data.shapes,
-            target_object=self.meta_node,
-            size=size,
-            name=name,
-            color=color,
-            shape_parent=shape_parent,
-            **control_data
-        )
-        controls_lib.set_shape(self.base_name, ccs)
+        curveslib.create_curve(
+            curve_type=curve_type, curves_path=controls_path, curve_name='tempControl', curve_size=size,
+            translate_offset=(0.0, 0.0, 0.0), color=color, parent=self.meta_node)
 
         if self.has_attr('create_root_group') and self.create_root_group:
             self.create_root()
