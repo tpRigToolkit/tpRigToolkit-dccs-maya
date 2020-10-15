@@ -704,7 +704,7 @@ class ControlMixin(object):
         """
 
         if component.has_attr('controls_file') and self.controls_file:
-            component.set_controls_file(self.controls_file)
+            component.set_controls_path(self.controls_file)
             metautils.MetaAttributeUtils.connect((self, 'controls_file'), (component, 'controls_file'), lock=True)
         if component.has_attr('control_size') and self.control_size:
             component.set_control_size(self.control_size)

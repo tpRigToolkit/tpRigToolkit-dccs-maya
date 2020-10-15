@@ -223,16 +223,16 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         else:
             self.sub_control_side_colors = side_colors
 
-    def set_controls_file(self, file_path):
+    def set_controls_path(self, file_path):
         """
         Sets the file path used to create the controls of the module
         :param file_path: str
         """
 
-        if not self.has_attr('controls_file'):
-            self.add_attribute(attr='controls_file', value=file_path, attr_type='string')
+        if not self.has_attr('controls_path'):
+            self.add_attribute(attr='controls_path', value=file_path, attr_type='string')
         else:
-            self.controls_file = file_path
+            self.controls_path = file_path
 
     def get_module_by_name(self, module_name):
         """
@@ -286,8 +286,8 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
             metautils.MetaAttributeUtils.connect((self, 'naming_file'), (rig_module, 'naming_file'), lock=True)
         if rig_module.has_attr('naming_rule'):
             metautils.MetaAttributeUtils.connect((self, 'naming_rule'), (rig_module, 'naming_rule'), lock=True)
-        if rig_module.has_attr('controls_file'):
-            metautils.MetaAttributeUtils.connect((self, 'controls_file'), (rig_module, 'controls_file'), lock=True)
+        if rig_module.has_attr('controls_path'):
+            metautils.MetaAttributeUtils.connect((self, 'controls_path'), (rig_module, 'controls_path'), lock=True)
         if rig_module.has_attr('control_size'):
             metautils.MetaAttributeUtils.connect((self, 'control_size'), (rig_module, 'control_size'), lock=True)
         if rig_module.has_attr('sub_visibility'):
