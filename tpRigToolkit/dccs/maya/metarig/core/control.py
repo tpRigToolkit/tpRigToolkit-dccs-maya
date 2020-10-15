@@ -10,6 +10,7 @@ from __future__ import print_function, division, absolute_import
 import os
 
 import tpDcc as tp
+from tpDcc.libs.python import mathlib
 from tpDcc.libs.curves.core import curveslib
 
 import tpDcc.dccs.maya as maya
@@ -596,11 +597,14 @@ class RigControl(metaobject.MetaObject, object):
             self.size = size
 
         # We scale the offset taking into account the module size
-        # offset = (mathlib.Vector(*[0.0, 0.0, 0.0]) * size).list()
+        offset = (mathlib.Vector(*control_data.get('translation_offset', [0.0, 0.0, 0.0])) * size).list()
+
+        # Axis order
+        axis_order = control_data.get('axis_order', 'XYZ')
 
         curveslib.create_curve(
             curve_type=curve_type, curves_path=controls_path, curve_name='tempControl', curve_size=size,
-            translate_offset=(0.0, 0.0, 0.0), color=color, parent=self.meta_node)
+            translate_offset=offset, axis_order=axis_order, mirror=None, color=color, parent=self.meta_node)
 
         if self.has_attr('create_root_group') and self.create_root_group:
             self.create_root()
