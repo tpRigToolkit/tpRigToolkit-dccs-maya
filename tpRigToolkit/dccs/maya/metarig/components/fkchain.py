@@ -133,10 +133,10 @@ class FkChainComponent(buffer.BufferComponent, object):
                 sub_letter = 'A' if i == 0 else 'B'
                 sub_control = self._create_control(name='subControl{}'.format(sub_letter), id=id, sub_id=i, sub=True)
                 self._connect_sub_visibility(new_control, sub_control)
+                sub_control.match_translation_and_rotation(new_control)
                 if self.hide_sub_controls_translate:
                     sub_control.hide_translate_attributes()
                 sub_control.hide_scale_and_visibility_attributes()
-                sub_control.match_translation_and_rotation(new_control)
                 new_control.add_sub_control(sub_control)
                 if i == 0:
                     sub_control.set_parent(new_control)
@@ -198,11 +198,17 @@ class FkChainComponent(buffer.BufferComponent, object):
 
         current_increment = 0
 
+        if self.skip_increments and 0 in self.skip_increments:
+            transforms = transforms[1:]
+
+        inc_index = 0
         for i in range(len(transforms)):
             if transforms[i] in found_to_skip:
-                current_increment += 1
+                if current_increment > 0:
+                    inc_index += 1
                 continue
-            current_increment = i
+            current_increment = inc_index
+            inc_index += 1
 
             fk_ctrl = self._create_control(id=current_increment)
             self._setup_increment(fk_ctrl, transforms, current_increment)
@@ -242,11 +248,10 @@ class FkChainComponent(buffer.BufferComponent, object):
         """
 
         if self.match_to_rotation:
-            tp.Dcc.match_rotation(current_transform.meta_node, control.top().meta_node)
+            control.match_rotation(current_transform)
 
-        tp.Dcc.match_translation(current_transform.meta_node, control.top().meta_node)
-        tp.Dcc.match_scale(current_transform.meta_node, control.top().meta_node)
-        tp.Dcc.match_translation_to_rotate_pivot(current_transform.meta_node, control.top().meta_node)
+        control.match_translation_and_rotation(current_transform)
+        control.match_scale(current_transform)
 
     def _setup_first_control(self, control, current_transform, current_increment):
         """
