@@ -42,6 +42,7 @@ class IkChainComponent(buffer.BufferComponent, object):
         self.set_create_switch(True)
         self.set_joint_index_to_handle(-1)
         self.set_joint_index_to_orient_to(-1)
+        self.set_start_pole_vector_joint_index(0)
 
     # ==============================================================================================
     # OVERRIDES
@@ -294,6 +295,17 @@ class IkChainComponent(buffer.BufferComponent, object):
         else:
             self.joint_index_to_orient_to = value
 
+    def set_start_pole_vector_joint_index(self, value):
+        """
+           Sets the index in which the automatic pole vector will start taking into account
+           :param value: int
+           """
+
+        if not self.has_attr('start_pole_vector_joint_index'):
+            self.add_attribute(attr='start_pole_vector_joint_index', value=value)
+        else:
+            self.start_pole_vector_joint_index = value
+
     # ==============================================================================================
     # INTERNAL
     # ==============================================================================================
@@ -324,6 +336,8 @@ class IkChainComponent(buffer.BufferComponent, object):
         """
 
         ik_chain = self.get_ik_chain()
+        if self.start_pole_vector_joint_index > 0:
+            ik_chain = ik_chain[self.start_pole_vector_joint_index:]
 
         if self.create_ik_buffer_joint:
             buffer_joint = self._create_buffer_joint()
@@ -526,10 +540,13 @@ class IkChainComponent(buffer.BufferComponent, object):
         pole_angle_joints = self.get_pole_angle_joints(as_meta=as_meta)
         if not pole_angle_joints:
 
-            # TODO: I do not like this code. To work this consier that the IK joints chain is composed only
+            # TODO: I do not like this code. To work this consider that the IK joints chain is composed only
             # TODO: by 3 joints and that is not usually the case in some scenarios. Improve it.
 
             ik_chain = self.get_ik_chain(as_meta=as_meta)
+            if self.start_pole_vector_joint_index > 0:
+                ik_chain = ik_chain[self.start_pole_vector_joint_index:]
+
             ik_chain_length = len(ik_chain)
             mid_joint_index = int(len(ik_chain) / 2)
             if ik_chain_length > 3:
