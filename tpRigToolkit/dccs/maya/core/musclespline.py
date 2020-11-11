@@ -10,8 +10,9 @@ from __future__ import print_function, division, absolute_import
 import logging
 import traceback
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.core import transform as transform_utils
 from tpDcc.libs.qt.core import qtutils
 
@@ -175,10 +176,10 @@ class MuscleSpline(object):
                 name=ctrl_name.replace(self._control_suffix, self._auto_group_suffix), empty=True, world=True)
             new_ctrl.root = root_grp
             new_ctrl.auto = cns_grp
-            tp.Dcc.add_message_attribute(new_ctrl.control, 'root')
-            tp.Dcc.add_message_attribute(new_ctrl.control, 'auto')
-            tp.Dcc.connect_message_attribute(root_grp, new_ctrl.control, 'root')
-            tp.Dcc.connect_message_attribute(cns_grp, new_ctrl.control, 'auto')
+            dcc.add_message_attribute(new_ctrl.control, 'root')
+            dcc.add_message_attribute(new_ctrl.control, 'auto')
+            dcc.connect_message_attribute(root_grp, new_ctrl.control, 'root')
+            dcc.connect_message_attribute(cns_grp, new_ctrl.control, 'auto')
 
             self._controls.append(new_ctrl)
             self._root_groups.append(root_grp)

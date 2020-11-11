@@ -7,11 +7,14 @@ Module that contains buffer rig metarig implementations for Maya
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
+import logging
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.core import joint as joint_utils, transform as xform_utils
 
-import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.components import joint, attach
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class BufferComponent(joint.JointComponent, object):
@@ -191,13 +194,13 @@ class BufferComponent(joint.JointComponent, object):
 
         rig_module = self.get_rig_module()
         if not rig_module:
-            tpRigToolkit.logger.warning(
+            LOGGER.warning(
                 'RigComponent {} is not connected to a RigModule ...'.format(self.base_name))
             return
 
         setup_group = self.setup_group or rig_module.setup_group
         if not setup_group or not setup_group.is_valid_mobject():
-            tpRigToolkit.logger.warning(
+            LOGGER.warning(
                 'RigComponent {} | No Setups group found. Aborting joint duplication ...'.format(self.base_name))
             return
 
@@ -205,7 +208,7 @@ class BufferComponent(joint.JointComponent, object):
 
         if self.create_buffer_joints:
             if not joints:
-                tpRigToolkit.logger.warning('No joints defined to duplicate!')
+                LOGGER.warning('No joints defined to duplicate!')
                 return
             if self.build_hierarchy:
                 build_hierarchy = joint_utils.BuildJointHierarchy()
@@ -219,10 +222,10 @@ class BufferComponent(joint.JointComponent, object):
                 duplicate_hierarchy.set_replace(self.buffer_replace[0], self.buffer_replace[1])
                 buffer_joints = duplicate_hierarchy.create()
             if not buffer_joints:
-                tpRigToolkit.logger.warning('No Buffer Joints duplicated!')
+                LOGGER.warning('No Buffer Joints duplicated!')
             else:
                 self.message_list_connect('buffer_joints', buffer_joints)
-                tp.Dcc.set_parent(buffer_joints[0], setup_group.meta_node)
+                dcc.set_parent(buffer_joints[0], setup_group.meta_node)
         else:
             joints = rig_module.get_joints()
             self.message_list_connect('buffer_joints', joints)

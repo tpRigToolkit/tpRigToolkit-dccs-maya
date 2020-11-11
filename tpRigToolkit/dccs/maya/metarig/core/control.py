@@ -8,16 +8,19 @@ Module that contains control metarig implementations for Maya
 from __future__ import print_function, division, absolute_import
 
 import os
+import logging
 
-import tpDcc as tp
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.libs.python import mathlib
 from tpDcc.libs.curves.core import curveslib
-
-import tpDcc.dccs.maya as maya
 from tpDcc.dccs.maya.core import transform, attribute, shape
 from tpDcc.dccs.maya.meta import metaobject, metautils
 
-import tpRigToolkit
+from tpRigToolkit.managers import names
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class RigControl(metaobject.MetaObject, object):
@@ -98,9 +101,9 @@ class RigControl(metaobject.MetaObject, object):
         maya.cmds.delete(maya.cmds.pointConstraint(source, target.meta_node))
         # transform.match_translation(target.meta_node, source)
 
-        if tp.Dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
-            # tp.Dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
-            tp.Dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
+        if dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
+            # dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
+            dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
 
     def match_rotation(self, source):
         """
@@ -115,9 +118,9 @@ class RigControl(metaobject.MetaObject, object):
         maya.cmds.delete(maya.cmds.orientConstraint(source, target.meta_node))
         # transform.match_rotation(target.meta_node, source)
 
-        if tp.Dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
-            # tp.Dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
-            tp.Dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
+        if dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
+            # dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
+            dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
 
     def match_translation_and_rotation(self, source):
         """
@@ -133,9 +136,9 @@ class RigControl(metaobject.MetaObject, object):
         maya.cmds.delete(maya.cmds.orientConstraint(source, target.meta_node))
         # transform.match_translation_rotation(target.meta_node, source)
 
-        if tp.Dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
-            # tp.Dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
-            tp.Dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
+        if dcc.name_is_right(self.side) and self.has_attr('mirror_group'):
+            # dcc.set_attribute_value(target.meta_node, 'scaleZ', 1.0)
+            dcc.set_attribute_value(self.meta_node, 'rotateY', 0.0)
 
     def match_scale(self, source):
         """
@@ -160,7 +163,7 @@ class RigControl(metaobject.MetaObject, object):
         """
 
         if not self.has_attr('rig_module'):
-            tpRigToolkit.logger.warning('Control {} is not connected to a rig module!'.format(self.base_name))
+            LOGGER.warning('Control {} is not connected to a rig module!'.format(self.base_name))
             return None
 
         rig_module = self.get_message('rig_module', as_meta=True)
@@ -230,10 +233,10 @@ class RigControl(metaobject.MetaObject, object):
 
         # Maya does not refresh properly shape color when connecting directly to them
         # We must update overrideEnabled attribute to force the refresh
-        if tp.Dcc.object_exists(self.meta_node):
+        if dcc.node_exists(self.meta_node):
             for shape in self.get_shapes():
-                tp.Dcc.set_attribute_value(shape, 'overrideEnabled', False)
-                tp.Dcc.set_attribute_value(shape, 'overrideEnabled', True)
+                dcc.set_attribute_value(shape, 'overrideEnabled', False)
+                dcc.set_attribute_value(shape, 'overrideEnabled', True)
 
     def set_control_data(self, control_dict=None):
         """
@@ -268,14 +271,14 @@ class RigControl(metaobject.MetaObject, object):
 
         if self.has_attr('root_group') and maya.cmds.objExists(self.root_group.meta_node):
             if not ignore_warnings:
-                tpRigToolkit.logger.warning('Impossible to create root group because it already exists!')
+                LOGGER.warning('Impossible to create root group because it already exists!')
             return self.root_group
 
         base_name = self.name if self.has_attr('name') and self.name else self.base_name
 
         naming_file, naming_rule = self._get_naming_data()
 
-        parsed_name = tpRigToolkit.NamesMgr().parse_name(self.base_name, naming_file=naming_file, rule_name=naming_rule)
+        parsed_name = names.parse_name(self.base_name, naming_file=naming_file, rule_name=naming_rule)
         if parsed_name:
             # TODO: Allow to put the root in the first key (prefix) or in the last one (suffix)
             parsed_name[list(parsed_name.keys())[-1]] = group_name
@@ -287,7 +290,7 @@ class RigControl(metaobject.MetaObject, object):
         # MIRROR BEHAVIOUR
         # TODO: This should be optional
         mirror_group = None
-        if tp.Dcc.name_is_right(self.side):
+        if dcc.name_is_right(self.side):
             if parsed_name:
                 # TODO: Allow to put the root in the first key (prefix) or in the last one (suffix)
                 parsed_name[list(parsed_name.keys())[-1]] = 'mirror'
@@ -295,7 +298,7 @@ class RigControl(metaobject.MetaObject, object):
                 mirror_group = self._create_group(force_suffix=False, *args, **kwargs)
             else:
                 mirror_group = self._create_group(base_name, group_name, *args, **kwargs)
-            tp.Dcc.set_attribute_value(mirror_group.meta_node, 'scaleX', -1)
+            dcc.set_attribute_value(mirror_group.meta_node, 'scaleX', -1)
             mirror_group.set_parent(self.get_parent())
             self.add_attribute(attr='mirror_group', value=mirror_group, attr_type='messageSimple')
 
@@ -307,7 +310,7 @@ class RigControl(metaobject.MetaObject, object):
                 for xform in 'trs':
                     for axis in 'xyz':
                         attr_value = 1.0 if xform == 's' else 0.0
-                        tp.Dcc.set_attribute_value(new_group.meta_node, '{}{}'.format(xform, axis), attr_value)
+                        dcc.set_attribute_value(new_group.meta_node, '{}{}'.format(xform, axis), attr_value)
             else:
                 new_group.set_parent(self.get_parent())
                 self.set_parent(new_group, parent_top=False)
@@ -332,14 +335,14 @@ class RigControl(metaobject.MetaObject, object):
         """
 
         if self.has_attr('auto_group') and maya.cmds.objExists(self.auto_group.meta_node):
-            tpRigToolkit.logger.warning('Impossible to create auto group because it already exists!')
+            LOGGER.warning('Impossible to create auto group because it already exists!')
             return self.auto_group
 
         base_name = self.name if self.has_attr('name') and self.name else self.base_name
 
         naming_file, naming_rule = self._get_naming_data()
 
-        parsed_name = tpRigToolkit.NamesMgr().parse_name(self.base_name, naming_file=naming_file, rule_name=naming_rule)
+        parsed_name = names.parse_name(self.base_name, naming_file=naming_file, rule_name=naming_rule)
         if parsed_name:
             # TODO: Allow to put the root in the first key (prefix) or in the last one (suffix)
             parsed_name[list(parsed_name.keys())[-1]] = group_name
@@ -357,7 +360,7 @@ class RigControl(metaobject.MetaObject, object):
             for xform in 'trs':
                 for axis in 'xyz':
                     attr_value = 1.0 if xform == 's' else 0.0
-                    tp.Dcc.set_attribute_value(new_group.meta_node, '{}{}'.format(xform, axis), attr_value)
+                    dcc.set_attribute_value(new_group.meta_node, '{}{}'.format(xform, axis), attr_value)
 
         if not self.has_attr('auto_group'):
             self.add_attribute(attr='auto_group', value=new_group, attr_type='messageSimple')
@@ -644,7 +647,7 @@ class RigControl(metaobject.MetaObject, object):
         naming_file, naming_rule = self._get_naming_data()
 
         kwargs['side'] = self.side
-        return tpRigToolkit.NamesMgr().solve_name(naming_file=naming_file, rule_name=naming_rule, *args, **kwargs)
+        return names.solve_name(naming_file=naming_file, rule_name=naming_rule, *args, **kwargs)
 
     def _get_top_group(self):
         """

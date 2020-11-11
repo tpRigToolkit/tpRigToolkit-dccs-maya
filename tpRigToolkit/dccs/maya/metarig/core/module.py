@@ -5,10 +5,13 @@
 Module that contains implementation for metarig modules for Maya
 """
 
-from tpDcc.dccs.maya.meta import metanode, metautils
+import logging
 
-import tpRigToolkit
+from tpDcc.dccs.maya.meta import metanode
+
 from tpRigToolkit.dccs.maya.metarig.core import mixin
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
@@ -61,7 +64,7 @@ class RigModule(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
         """
 
         if not self.has_attr('character'):
-            tpRigToolkit.logger.warning('Rig module {} is not connected to a character!'.format(self.base_name))
+            LOGGER.warning('Rig module {} is not connected to a character!'.format(self.base_name))
             return None
 
         # TODO: Here se should check if the MetaNode is of type RigCharacter

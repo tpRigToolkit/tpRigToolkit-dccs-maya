@@ -9,9 +9,8 @@ from __future__ import print_function, division, absolute_import
 
 import os
 
-import tpDcc as tp
+from tpDcc.managers import resources
 from tpDcc.libs.qt.widgets.library import utils
-
 from tpDcc.dccs.maya.core import helpers
 from tpDcc.dccs.maya.data import base as maya_base
 
@@ -70,7 +69,7 @@ class MayaAscii(data.DataItem, object):
         :return:
         """
 
-        student_icon = tp.ResourcesMgr().icon('student')
+        student_icon = resources.icon('student')
         menu.addAction(student_icon, 'Clean Student License', self._on_clean_student_license)
 
     def _on_clean_student_license(self):

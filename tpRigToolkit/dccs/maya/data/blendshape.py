@@ -8,15 +8,20 @@ Module that contains data Maya BlenShape weights widget
 from __future__ import print_function, division, absolute_import
 
 import os
+import logging
 from collections import OrderedDict
 
-import tpDcc as tp
-from tpDcc.libs.python import folder, fileio, name as name_utils, path as path_utils
-import tpDcc.dccs.maya as maya
+import maya.cmds
+import maya.mel
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.data import base
+from tpDcc.libs.python import folder, fileio, name as name_utils, path as path_utils
 from tpDcc.dccs.maya.core import decorators, geometry, curve, deformer, blendshape as bs_utils
 
 from tpRigToolkit.core import data
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class BlendShapeWeightsData(base.MayaCustomData, object):
@@ -37,8 +42,8 @@ class BlendShapeWeightsData(base.MayaCustomData, object):
 
     def export_data(self, file_path=None, comment='-', create_version=True, *args, **kwargs):
 
-        if not tp.is_maya():
-            maya.logger.warning('Data must be exported from within Maya!')
+        if not dcc.is_maya():
+            LOGGER.warning('Data must be exported from within Maya!')
             return False
 
         file_path = file_path or self.get_file()
@@ -56,7 +61,7 @@ class BlendShapeWeightsData(base.MayaCustomData, object):
             blendshapes = deformer.find_deformer_by_type(mesh, 'blendShape', return_all=True) or list()
             blendshapes_found.extend(blendshapes)
         if not blendshapes_found:
-            maya.logger.warning('No blendshapes to export')
+            LOGGER.warning('No blendshapes to export')
             return
 
         for blendshape_name in blendshapes_found:
@@ -78,7 +83,7 @@ class BlendShapeWeightsData(base.MayaCustomData, object):
                 base_mesh_weights_file_name = fileio.create_file('base_{}.weights'.format(i), blendshape_path)
                 fileio.write_lines(base_mesh_weights_file_name, [weights])
 
-        maya.logger.info('BlendShape export operation completed successfully!')
+        LOGGER.info('BlendShape export operation completed successfully!')
 
         version = fileio.FileVersion(file_folder)
         version.save(comment)
@@ -87,19 +92,19 @@ class BlendShapeWeightsData(base.MayaCustomData, object):
 
     @decorators.undo_chunk
     def import_data(self, file_path='', objects=None):
-        if not tp.is_maya():
-            maya.logger.warning('Data must be exported from within Maya!')
+        if not dcc.is_maya():
+            LOGGER.warning('Data must be exported from within Maya!')
             return False
 
         file_path = file_path or self.get_file()
         if not file_path or not os.path.isdir(file_path):
-            maya.logger.warning('Impossible to import blendShape weights from: "{}"'.format(file_path))
+            LOGGER.warning('Impossible to import blendShape weights from: "{}"'.format(file_path))
             return False
 
         folders = folder.get_folders(file_path)
 
         for folder_found in folders:
-            if tp.Dcc.object_exists(folder_found) and tp.Dcc.node_type(folder_found) == 'blendShape':
+            if dcc.node_exists(folder_found) and dcc.node_type(folder_found) == 'blendShape':
                 blendshape_folder = folder_found
                 blendshape_path = path_utils.join_path(file_path, folder_found)
                 base_files = folder.get_files_with_extension('weights', blendshape_path)
@@ -128,7 +133,7 @@ class BlendShapeWeightsData(base.MayaCustomData, object):
 
         self._center_view()
 
-        maya.logger.info('Imported "{}" BlendShape data'.format(self.name))
+        LOGGER.info('Imported "{}" BlendShape data'.format(self.name))
 
         return True
 
@@ -177,17 +182,17 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
 
     def export_data(self, file_path=None, comment='-', create_version=True, *args, **kwargs):
 
-        if not tp.is_maya():
-            maya.logger.warning('Data must be exported from within Maya!')
+        if not dcc.is_maya():
+            LOGGER.warning('Data must be exported from within Maya!')
             return False
 
-        if not tp.Dcc.is_plugin_loaded('SHAPESTools'):
-            valid_load = tp.Dcc.register_plugin('SHAPESTools')
+        if not dcc.is_plugin_loaded('SHAPESTools'):
+            valid_load = dcc.load_plugin('SHAPESTools')
             if not valid_load:
-                maya.logger.warning('Shapes is not installed. Impossible to export SHAPES data.')
+                LOGGER.warning('Shapes is not installed. Impossible to export SHAPES data.')
                 return False
-        if not tp.Dcc.is_plugin_loaded('weightDriver'):
-            tp.Dcc.register_plugin('weightDriver')
+        if not dcc.is_plugin_loaded('weightDriver'):
+            dcc.load_plugin('weightDriver')
 
         # We force the load of SHAPES scripts
         for shape_script in [
@@ -211,7 +216,7 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
         meshes.extend(surfaces)
 
         if not meshes:
-            maya.logger.warning('No meshes to export')
+            LOGGER.warning('No meshes to export')
             return False
 
         blendshapes_found = list()
@@ -223,7 +228,7 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
             valid_blendshapes = list()
             for blend in blendshapes:
                 if blend in blendshapes_found:
-                    maya.logger.warning(
+                    LOGGER.warning(
                         'BlendShape node with name "{0}" already retrieved. Skipping '
                         'blendShape node "{0}" from mesh "{1}"'.format(blend, mesh))
                     continue
@@ -232,7 +237,7 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
             blendshapes_map[mesh] = valid_blendshapes
 
         if not blendshapes_found:
-            maya.logger.warning('No blendshapes to export')
+            LOGGER.warning('No blendshapes to export')
             return
 
         for mesh_name, blendshapes in blendshapes_map.items():
@@ -241,7 +246,7 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
                 blendshape = bs_utils.BlendShape(blendshape_name)
                 targets = blendshape.get_target_names()
                 if not targets:
-                    maya.logger.warning(
+                    LOGGER.warning(
                         'Skipping export of blendShape "{}" in mesh "{}" because no targets found!'.format(
                             blendshape_name, mesh_name))
                     continue
@@ -258,7 +263,7 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
                 # This does not exports the blendShape data
                 # maya.mel.eval('shapesUtil_exportShapeSetup 1 "{}" "{}"'.format(blendshape_path, blendshape_name))
 
-        maya.logger.info('SHAPES BlendShape data export operation completed successfully!')
+        LOGGER.info('SHAPES BlendShape data export operation completed successfully!')
 
         version = fileio.FileVersion(file_folder)
         version.save(comment)
@@ -267,20 +272,20 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
 
     @decorators.undo_chunk
     def import_data(self, file_path='', objects=None):
-        if not tp.is_maya():
-            maya.logger.warning('Data must be exported from within Maya!')
+        if not dcc.is_maya():
+            LOGGER.warning('Data must be exported from within Maya!')
             return False
 
         file_path = file_path or self.get_file()
         if not file_path or not os.path.isdir(file_path):
-            maya.logger.warning('Impossible to import SHAPES blendShape weights from: "{}"'.format(file_path))
+            LOGGER.warning('Impossible to import SHAPES blendShape weights from: "{}"'.format(file_path))
             return False
 
         folders = folder.get_folders(file_path)
 
         for mesh_name in folders:
-            if not tp.Dcc.object_exists(mesh_name):
-                maya.logger.warning(
+            if not dcc.node_exists(mesh_name):
+                LOGGER.warning(
                     'Skipping blendShapes data import for mesh "{}". No mesh with than '
                     'name found in current scene!'.format(mesh_name))
                 continue
@@ -291,15 +296,15 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
                 mel_shape_file = os.path.join(
                     mesh_folder, blendshape_folder, '{}.mel'.format(blendshape_folder))
                 if not os.path.isfile(mel_shape_file):
-                    maya.logger.warning(
+                    LOGGER.warning(
                         'Skipping blendShape "{}" data import . No SHAPES blendShape MEL file found: "{}"'.format(
                             blendshape_folder, mel_shape_file))
                     continue
                 mel_shape_file = mel_shape_file.replace('\\', '/')
 
-                if tp.Dcc.object_exists(blendshape_folder):
+                if dcc.node_exists(blendshape_folder):
                     # TODO: Instead of skipping we should remove that blendShape
-                    maya.logger.warning(
+                    LOGGER.warning(
                         'Skipping blendShape "{0}" data import. BlendShape node with '
                         'name already in scene'.format(blendshape_folder))
                     continue
@@ -314,7 +319,7 @@ class SHAPESBlendShapeData(base.MayaCustomData, object):
 
         self._center_view()
 
-        maya.logger.info('Imported "{}" SHAPES BlendShape data'.format(self.name))
+        LOGGER.info('Imported "{}" SHAPES BlendShape data'.format(self.name))
 
         return True
 

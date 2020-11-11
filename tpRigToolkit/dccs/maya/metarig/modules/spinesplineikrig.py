@@ -10,7 +10,7 @@ This module uses the following components:
     - Fk Chain: to create Fk controls to manage Spline Ik ribbon clusters
 """
 
-import tpDcc as tp
+from tpDcc import dcc
 from tpDcc.dccs.maya.core import transform as xform_utils, attribute as attr_utils, joint as joint_utils
 
 from tpRigToolkit.dccs.maya.metarig.core import module, mixin
@@ -65,7 +65,7 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
         buffer_rig.set_buffer_replace(self.buffer_replace)
         buffer_rig.create()
 
-        buffer_joints = self._fix_x_axis(buffer_rig.get_buffer_joints(as_meta=False))
+        buffer_joints = self._fix_x_axis(buffer_rig.get_buffer_joints())
 
         # Component that creates basic spline Ik setup
         if self.spline_ik_type == self.SPLINE_IK_CLUSTER:
@@ -87,6 +87,8 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
             self.set_advanced_twist(self.advanced_twist)
             spline_ik_rig.create()
             handlers = spline_ik_rig.get_marker_joints(as_meta=True)
+
+        buffer_joints = spline_ik_rig.get_buffer_joints()
 
         # Create Fk rig setup that will manage clusters
         fk_rig = splineikribbonfkchain.SplineIkRibbonFkChainComponent(name='spineSplineIkChainFk')
@@ -289,7 +291,7 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
         else:
             self.stretch_axis = axis_letter
 
-    def set_stretch_attribute_controls(self, node_name):
+    def set_stretch_attribute_control(self, node_name):
         """
         Sets the control where stretch attribute will be added
         :param node_name: str
@@ -357,14 +359,14 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
         if not self.fix_x_axis:
             return joints
 
-        duplicate_hierarchy = xform_utils.DuplicateHierarchy(joints[0])
-        duplicate_hierarchy.stop_at(joints[-1])
+        duplicate_hierarchy = xform_utils.DuplicateHierarchy(joints[0].meta_node)
+        duplicate_hierarchy.stop_at(joints[-1].meta_node)
         prefix = self.buffer_replace[1] if self.create_buffer_joints else self.buffer_replace[0]
         duplicate_hierarchy.set_replace(prefix, 'xFix')
         x_joints = duplicate_hierarchy.create()
         try:
-            tp.Dcc.set_parent(x_joints[0], self.setup_group)
-        except:
+            dcc.set_parent(x_joints[0], self.setup_group.meta_node)
+        except Exception:
             pass
 
         for i in range(len(x_joints)):
@@ -402,24 +404,24 @@ class SplineIkSpineRig(module.RigModule, mixin.JointMixin):
 
         if self.advanced_twist:
             if fk_chain_component.has_attr('top_sub_control') and fk_chain_component.top_sub_control:
-                tp.Dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
+                dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
             else:
                 if not sub_controls:
-                    tp.Dcc.set_parent(spline_ik_component.start_locator[0], controls[0])
+                    dcc.set_parent(spline_ik_component.start_locator[0], controls[0])
                 else:
-                    tp.Dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
+                    dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
 
             if sub_controls:
-                tp.Dcc.set_parent(spline_ik_component.end_locator[0], sub_controls[-1])
+                dcc.set_parent(spline_ik_component.end_locator[0], sub_controls[-1])
             else:
-                tp.Dcc.set_parent(spline_ik_component.end_locator[0], controls[-1])
+                dcc.set_parent(spline_ik_component.end_locator[0], controls[-1])
         else:
             buffer_joints = self.get_buffer_joints(as_meta=False)
             joints = self.get_joints(as_meta=False)
 
             if buffer_joints != joints:
-                follow = tp.Dcc.create_follow_group(controls[0], buffer_joints[0])
-                tp.Dcc.set_parent(follow, self.setup_group)
+                follow = dcc.create_follow_group(controls[0], buffer_joints[0])
+                dcc.set_parent(follow, self.setup_group)
 
             var = attr_utils.NumericAttribute('twist')
             var.set_variable_type(attr_utils.AttributeTypes.Double)

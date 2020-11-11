@@ -1,4 +1,12 @@
-import tpDcc.dccs.maya as maya
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
+"""
+Module that contains metarig related utils functions
+"""
+
+import maya.cmds
+
 from tpDcc.dccs.maya.meta import metanode
 
 

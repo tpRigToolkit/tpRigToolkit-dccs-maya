@@ -10,9 +10,10 @@ from __future__ import print_function, division, absolute_import
 import os
 import logging
 
-import tpDcc as tp
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.libs.python import folder, fileio
-import tpDcc.dccs.maya as maya
 from tpDcc.dccs.maya.data import base
 
 from tpRigToolkit.core import data as rig_data
@@ -40,7 +41,7 @@ class AttributesFileData(base.MayaCustomData, object):
         return 'Attributes'
 
     def export_data(self, file_path=None, comment='-', create_version=True, *args, **kwargs):
-        if not tp.is_maya():
+        if not dcc.is_maya():
             LOGGER.warning('Data must be exported from within Maya!')
             return False
 
@@ -77,7 +78,7 @@ class AttributesFileData(base.MayaCustomData, object):
 
             for attribute_to_export in attributes_to_export:
                 try:
-                    value = tp.Dcc.get_attribute_value(obj, attribute_to_export)
+                    value = dcc.get_attribute_value(obj, attribute_to_export)
                 except Exception:
                     continue
                 lines.append("[ '{}', {} ]".format(attribute_to_export, value))
@@ -95,7 +96,7 @@ class AttributesFileData(base.MayaCustomData, object):
         return True
 
     def import_data(self, file_path='', objects=None):
-        if not tp.is_maya():
+        if not dcc.is_maya():
             LOGGER.warning('Data must be exported from within Maya!')
             return False
 
@@ -104,7 +105,7 @@ class AttributesFileData(base.MayaCustomData, object):
             return
 
         valid_import = True
-        selection = tp.Dcc.selected_nodes(full_path=False)
+        selection = dcc.selected_nodes(full_path=False)
         current_extension = self.get_data_extension()
         full_extension = current_extension
         if not full_extension.startswith('.'):
@@ -118,7 +119,7 @@ class AttributesFileData(base.MayaCustomData, object):
             if not os.path.isfile(full_path):
                 continue
             node_name = file_name.split('.')[0]
-            if not tp.Dcc.object_exists(node_name):
+            if not dcc.node_exists(node_name):
                 LOGGER.warning(
                     'Skipping attribute import for "{}". It does not exist in current scene'.format(node_name))
                 valid_import = False
@@ -131,22 +132,22 @@ class AttributesFileData(base.MayaCustomData, object):
                 attribute_name = line_list[0]
                 attribute_value = line_list[1]
                 attribute = '{}.{}'.format(node_name, attribute_name)
-                if not tp.Dcc.attribute_exists(node_name, attribute_name):
+                if not dcc.attribute_exists(node_name, attribute_name):
                     LOGGER.warning('"{}" does not exist. Impossible to set attribute value.'.format(attribute))
                     valid_import = False
                     continue
-                if tp.Dcc.is_attribute_locked(node_name, attribute_name):
+                if dcc.is_attribute_locked(node_name, attribute_name):
                     continue
-                if tp.Dcc.is_attribute_connected(node_name, attribute_name):
+                if dcc.is_attribute_connected(node_name, attribute_name):
                     continue
                 if attribute_value is None:
                     continue
                 try:
-                    tp.Dcc.set_attribute_value(node_name, attribute_name, attribute_value)
+                    dcc.set_attribute_value(node_name, attribute_name, attribute_value)
                 except Exception as exc:
                     LOGGER.warning('Impossible to set {} to {}: "{}" '.format(attribute, attribute_value, exc))
 
-        tp.Dcc.select_node(selection)
+        dcc.select_node(selection)
 
         if valid_import:
             LOGGER.info('Imported attributes successfully!')
@@ -161,7 +162,7 @@ class AttributesFileData(base.MayaCustomData, object):
         :return: list(str)
         """
 
-        selection = tp.Dcc.selected_nodes(full_path=False)
+        selection = dcc.selected_nodes(full_path=False)
         if not selection:
             LOGGER.warning('Nothing selected. Please select at least one node to export attributes of.')
             return None
@@ -173,7 +174,7 @@ class AttributesFileData(base.MayaCustomData, object):
 
         attributes = maya.cmds.listAttr(node, scalar=True, m=True, array=True)
         for attribute in attributes:
-            if not tp.Dcc.is_attribute_connected(node, attribute):
+            if not dcc.is_attribute_connected(node, attribute):
                 found_attributes.append(attribute)
 
         for removable_attribute in self.REMOVABLE_ATTRIBUTES:
@@ -183,7 +184,7 @@ class AttributesFileData(base.MayaCustomData, object):
         return found_attributes
 
     def _get_shapes(self, node):
-        return tp.Dcc.list_shapes(node, full_path=False)
+        return dcc.list_shapes(node, full_path=False)
 
     def _get_shape_attributes(self, shape):
         return self._get_attributes(shape)

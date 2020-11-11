@@ -7,8 +7,9 @@ Module that contains rig component to create FK joint chains controlled by a cur
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.core import transform as xform_utils, name as name_utils, attribute as attr_utils
 
 from tpRigToolkit.dccs.maya.metarig.components import fkcurl, splineikcluster, nurbsribbon
@@ -121,9 +122,9 @@ class FKCurveComponent(fkcurl.FkCurlNoScale, object):
 
         if self.create_sub_controls:
             sub_ctrl = control.get_sub_controls()[-1]
-            tp.Dcc.create_parent_constraint(cls_cmp[increment], sub_ctrl.meta_node, maintain_offset=True)
+            dcc.create_parent_constraint(cls_cmp[increment], sub_ctrl.meta_node, maintain_offset=True)
         else:
-            tp.Dcc.create_parent_constraint(cls_cmp[increment], control.meta_node, maintain_offset=True)
+            dcc.create_parent_constraint(cls_cmp[increment], control.meta_node, maintain_offset=True)
 
     def _setup_first_control(self, control, current_transform, current_increment):
         """
@@ -380,9 +381,9 @@ class FKCurveComponent(fkcurl.FkCurlNoScale, object):
         maya.cmds.delete(maya.cmds.listRelatives(clusters[0], ad=True, type='constraint'))
         maya.cmds.delete(maya.cmds.listRelatives(clusters[-1], ad=True, type='constraint'))
 
-        aim1 = tp.Dcc.create_empty_group(
+        aim1 = dcc.create_empty_group(
             name=name_utils.find_unique_name('{}'.format(self._get_name('aimCluster', type='group'))))
-        aim2 = tp.Dcc.create_empty_group(
+        aim2 = dcc.create_empty_group(
             name=name_utils.find_unique_name('{}'.format(self._get_name('aimCluster', type='group'))))
 
         xform_aim1 = xform_utils.create_buffer_group(aim1)
@@ -391,18 +392,18 @@ class FKCurveComponent(fkcurl.FkCurlNoScale, object):
         xform_utils.MatchTransform(sub_controls[0], xform_aim1).translation()
         xform_utils.MatchTransform(sub_controls[-1], xform_aim1).translation()
 
-        tp.Dcc.create_parent_constraint(xform_aim1, sub_controls[0], maintain_offset=True)
-        tp.Dcc.create_parent_constraint(xform_aim1, sub_controls[-1], maintain_offset=True)
+        dcc.create_parent_constraint(xform_aim1, sub_controls[0], maintain_offset=True)
+        dcc.create_parent_constraint(xform_aim1, sub_controls[-1], maintain_offset=True)
 
         mid_control_id = len(sub_controls) / 2
 
         maya.cmds.aimConstraint(sub_controls[mid_control_id], aim1, wuo=controls[0], wut='objectrotation')
         maya.cmds.aimConstraint(sub_controls[mid_control_id], aim2, wuo=controls[-1], wut='objectrotation')
 
-        tp.Dcc.set_parent(clusters[0], aim1)
-        tp.Dcc.set_parent(clusters[-1], aim2)
+        dcc.set_parent(clusters[0], aim1)
+        dcc.set_parent(clusters[-1], aim2)
 
-        tp.Dcc.set_parent(xform_aim1, xform_aim2, self.setup_group.meta_node)
+        dcc.set_parent(xform_aim1, xform_aim2, self.setup_group.meta_node)
 
     def _attach_ik_spline_to_controls(self):
         """
@@ -421,29 +422,26 @@ class FKCurveComponent(fkcurl.FkCurlNoScale, object):
 
         if self.advanced_twist:
             if self.has_attr('top_sub_control') and self.top_sub_control:
-                tp.Dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
+                dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
             else:
                 if not sub_controls:
-                    tp.Dcc.set_parent(spline_ik_component.start_locator[0], controls[0])
+                    dcc.set_parent(spline_ik_component.start_locator[0], controls[0])
                 else:
-                    tp.Dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
+                    dcc.set_parent(spline_ik_component.start_locator[0], sub_controls[0])
 
             if sub_controls:
-                tp.Dcc.set_parent(spline_ik_component.end_locator[0], sub_controls[-1])
+                dcc.set_parent(spline_ik_component.end_locator[0], sub_controls[-1])
             else:
-                tp.Dcc.set_parent(spline_ik_component.end_locator[0], controls[-1])
+                dcc.set_parent(spline_ik_component.end_locator[0], controls[-1])
         else:
             buffer_joints = self.get_buffer_joints(as_meta=False)
             joints = self.get_joints(as_meta=False)
 
             if buffer_joints != joints:
-                follow = tp.Dcc.create_follow_group(controls[0], buffer_joints[0])
-                tp.Dcc.set_parent(follow, self.setup_group)
+                follow = dcc.create_follow_group(controls[0], buffer_joints[0])
+                dcc.set_parent(follow, self.setup_group)
 
             var = attr_utils.NumericAttribute('twist')
             var.set_variable_type(attr_utils.AttributeTypes.Double)
             var.create(controls[0])
             var.connect_out('{}.twist'.format(spline_ik_component.ik_handle.meta_node))
-
-
-

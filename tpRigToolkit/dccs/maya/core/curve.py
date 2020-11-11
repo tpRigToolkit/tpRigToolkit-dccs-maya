@@ -8,11 +8,13 @@ Module that contains functions to handle curve related data in Maya
 import os
 import logging
 
-import tpDcc as tp
-from tpDcc.libs.python import python, folder, fileio, path as path_utils
-import tpDcc.dccs.maya as maya
+import maya.cmds
+import maya.mel
+
+from tpDcc import dcc
 from tpDcc.dccs.maya import api
 from tpDcc.dccs.maya.core import shape as shape_utils
+from tpDcc.libs.python import python, folder, fileio, path as path_utils
 
 from tpRigToolkit.core import utils
 from tpRigToolkit.dccs.maya.data import curves
@@ -45,11 +47,11 @@ class CurveToData(object):
         curves = python.force_list(curve)
         curve_shapes = list()
         for curve in curves:
-            if not tp.Dcc.node_type(curve) == 'nurbsCurve':
-                shapes = tp.Dcc.list_shapes(curve, full_path=True) or list()
+            if not dcc.node_type(curve) == 'nurbsCurve':
+                shapes = dcc.list_shapes(curve, full_path=True) or list()
                 for shape in shapes:
-                    if tp.Dcc.node_type(shape) == 'nurbsCurve':
-                        if not tp.Dcc.get_attribute_value(shape, 'intermediateObject'):
+                    if dcc.node_type(shape) == 'nurbsCurve':
+                        if not dcc.get_attribute_value(shape, 'intermediateObject'):
                             curve_shapes.append(shape)
 
         return curve_shapes
@@ -271,8 +273,8 @@ class CurveDataInfo(object):
         for curve in curves:
             curve_data_lines, curve_type = current_library[curve]
             if not curve_type:
-                if tp.Dcc.attribute_exists(curve, 'curveType'):
-                    curve_type = tp.Dcc.get_attribute_value(curve, 'curveType')
+                if dcc.attribute_exists(curve, 'curveType'):
+                    curve_type = dcc.get_attribute_value(curve, 'curveType')
             if curve != curve_type:
                 lines.append('-> {} {}'.format(curve, curve_type))
             if curve == curve_type:
@@ -325,8 +327,8 @@ class CurveDataInfo(object):
 
         mel_data_list = self._get_mel_data_list(curve)
         curve_type = curve
-        if tp.Dcc.attribute_exists(curve, 'curveType'):
-            curve_type = tp.Dcc.get_attribute_value(curve, 'curveType')
+        if dcc.attribute_exists(curve, 'curveType'):
+            curve_type = dcc.get_attribute_value(curve, 'curveType')
 
         transform = self._get_curve_parent(curve)
         if library_name:
@@ -355,8 +357,8 @@ class CurveDataInfo(object):
             LOGGER.warning('Must set active library before running this function')
             return False
 
-        curve_shape = tp.Dcc.create_node('nurbsCurve')
-        parent = tp.Dcc.node_parent(curve_shape, full_path=False)
+        curve_shape = dcc.create_node('nurbsCurve')
+        parent = dcc.node_parent(curve_shape, full_path=False)
         parent = maya.cmds.rename(parent, curve_name)
 
         self.set_shape_to_curve(parent, curve_name)
@@ -414,9 +416,9 @@ class CurveDataInfo(object):
 
     def _get_curve_parent(self, curve):
         parent = curve
-        if tp.Dcc.object_exists(curve):
-            if tp.Dcc.node_type(curve) == 'nurbsCurve':
-                parent = tp.Dcc.node_parent(curve)
+        if dcc.node_exists(curve):
+            if dcc.node_type(curve) == 'nurbsCurve':
+                parent = dcc.node_parent(curve)
             else:
                 parent = curve
 
@@ -430,8 +432,8 @@ class CurveDataInfo(object):
 
     def _get_curve_type(self, curve):
         curve_type_value = None
-        if tp.Dcc.attribute_exists(curve, 'curveType'):
-            curve_type_value = tp.Dcc.get_attribute_value(curve, 'curveType')
+        if dcc.attribute_exists(curve, 'curveType'):
+            curve_type_value = dcc.get_attribute_value(curve, 'curveType')
 
         return curve_type_value
 
@@ -460,25 +462,25 @@ class CurveDataInfo(object):
 
         shape_color = None
         if len(shapes):
-            shape_color = tp.Dcc.get_attribute_value(shapes[0], 'overrideColor')
-            shape_color_enabled = tp.Dcc.get_attribute_value(shapes[0], 'overrideEnabled')
+            shape_color = dcc.get_attribute_value(shapes[0], 'overrideColor')
+            shape_color_enabled = dcc.get_attribute_value(shapes[0], 'overrideEnabled')
 
         for shape in shapes:
-            if tp.Dcc.node_type(shape) == 'nurbsCurve':
+            if dcc.node_type(shape) == 'nurbsCurve':
                 found.append(shape)
 
         if len(found) > len(data_list):
-            tp.Dcc.delete_object(found[len(data_list):])
+            dcc.delete_node(found[len(data_list):])
         if len(found) < len(data_list):
             current_index = len(found)
             for i in range(current_index, len(data_list)):
                 curve_shape = maya.cmds.createNode('nurbsCurve')
                 if shape_color is not None and shape_color_enabled:
-                    tp.Dcc.set_attribute_value(curve_shape, 'overrideEnabled', True)
-                    tp.Dcc.set_attribute_value(curve_shape, 'overrideColor', shape_color)
-                parent = tp.Dcc.node_parent(curve_shape)
+                    dcc.set_attribute_value(curve_shape, 'overrideEnabled', True)
+                    dcc.set_attribute_value(curve_shape, 'overrideColor', shape_color)
+                parent = dcc.node_parent(curve_shape)
                 maya.cmds.parent(curve_shape, curve, r=True, s=True)
-                tp.Dcc.delete_object(parent)
+                dcc.delete_node(parent)
 
 
 def get_shapes(transform):
@@ -499,12 +501,12 @@ def get_shapes(transform):
 
 
 def create_curve_type_attribute(node, value):
-    if not tp.Dcc.attribute_exists(node, 'curveType'):
-        tp.Dcc.add_string_attribute(node, 'curveType', lock=False)
+    if not dcc.attribute_exists(node, 'curveType'):
+        dcc.add_string_attribute(node, 'curveType', lock=False)
     if value is not None and value != node:
-        tp.Dcc.set_attribute_value(node, 'curveType', value)
-    tp.Dcc.unlock_attribute(node, 'curveType')
-    tp.Dcc.keyable_attribute(node, 'curveType')
+        dcc.set_attribute_value(node, 'curveType', value)
+    dcc.unlock_attribute(node, 'curveType')
+    dcc.keyable_attribute(node, 'curveType')
 
 
 def set_nurbs_data(curve, curve_data_array):
@@ -519,7 +521,7 @@ def set_nurbs_data_mel(curve, mel_curve_data):
         shapes = get_shapes(curve)
         mel_curve_data = python.force_list(mel_curve_data)
         data_count = len(mel_curve_data)
-        create_input = tp.Dcc.get_attribute_input('{}.create'.format(curve))
+        create_input = dcc.get_attribute_input('{}.create'.format(curve))
         if create_input:
             LOGGER.warning(
                 '{} has history. Disconnecting create attribute on curve. This will allow CV position change'.format(curve))

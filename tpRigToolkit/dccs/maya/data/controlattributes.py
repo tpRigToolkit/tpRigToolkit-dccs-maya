@@ -9,7 +9,7 @@ from __future__ import print_function, division, absolute_import
 
 import logging
 
-import tpDcc.dccs.maya as maya
+import maya.cmds
 
 from tpRigToolkit.dccs.maya.data import attributes
 from tpRigToolkit.libs.controlrig.core import controllib

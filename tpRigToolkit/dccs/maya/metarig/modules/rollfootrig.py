@@ -5,12 +5,15 @@
 Module that contains Foot rig implementation for metarig in Maya
 """
 
-import tpDcc as tp
-from tpDcc.dccs.maya.core import transform as xform_utils, joint as joint_utils
+import logging
 
-import tpRigToolkit
+from tpDcc import dcc
+from tpDcc.dccs.maya.core import transform as xform_utils
+
 from tpRigToolkit.dccs.maya.metarig.core import module, mixin
 from tpRigToolkit.dccs.maya.metarig.components import buffer
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class RollFootRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
@@ -58,7 +61,7 @@ class RollFootRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
             self._create_roll_control(buffer_joints[0])
 
         attribute_control = self._get_attribute_control()
-        tp.Dcc.add_title_attribute(attribute_control.meta_node, 'FOOT_PIVOTS')
+        dcc.add_title_attribute(attribute_control.meta_node, 'FOOT_PIVOTS')
 
         if self.create_roll_controls:
             pass
@@ -209,7 +212,7 @@ class RollFootRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
 
         buffer_component = self.get_component_by_class(buffer.BufferComponent)
         if not buffer_component:
-            tpRigToolkit.logger.warning('Impossible to create reverse foot rig Ik chain. No buffer component found!')
+            LOGGER.warning('Impossible to create reverse foot rig Ik chain. No buffer component found!')
             return
 
         buffer_joints = buffer_component.get_buffer_joints(as_meta=False)
@@ -223,15 +226,15 @@ class RollFootRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
 
         joints = duplicate.create()
 
-        parent = tp.Dcc.node_parent(joints[0])
+        parent = dcc.node_parent(joints[0])
         if parent != self.setup_group.meta_node:
-            tp.Dcc.set_parent(joints[0], self.setup_group)
+            dcc.set_parent(joints[0], self.setup_group)
 
         self.message_list_connect('ik_joints', joints)
 
         # Attach Ik joints to the buffer joints
         for i in range(len(joints)):
-            tp.Dcc.create_parent_constraint(buffer_joints[i], joints[i])
+            dcc.create_parent_constraint(buffer_joints[i], joints[i])
 
         ik_joints = self.message_list_get('ik_joints')
 
@@ -243,23 +246,23 @@ class RollFootRig(module.RigModule, mixin.JointMixin, mixin.ControlMixin):
 
     def _create_pivot(self, name, transform, parent):
         pivot_joint, pivot_root, pivot_driver = self._create_pivot_joint(transform, name)
-        tp.Dcc.set_parent(pivot_root, parent)
+        dcc.set_parent(pivot_root, parent)
 
         return pivot_joint
 
     def _create_pivot_joint(self, source_transform, name):
 
-        tp.Dcc.clear_selection()
-        new_joint = tp.Dcc.create_joint(
+        dcc.clear_selection()
+        new_joint = dcc.create_joint(
             name=self._get_name(self.name, '{}Pivot'.format(name), node_type='joint'), size=2.0)
         xform_utils.MatchTransform(source_transform, new_joint).translation()
         xform_utils.MatchTransform(self.get_joints(as_meta=False)[-1], new_joint)
-        joint_buffer = tp.Dcc.create_buffer_group(new_joint)
-        joint_driver = tp.Dcc.create_buffer_group(joint_buffer, suffix='driver')
+        joint_buffer = dcc.create_buffer_group(new_joint)
+        joint_driver = dcc.create_buffer_group(joint_buffer, suffix='driver')
 
         # attribute_control = self._get_attribute_control()
         # attribute_name = '{}Pivot'.format(name)
-        # tp.Dcc.add_double_attribute(attribute_control.meta_node, attribute_name, keyable=True)
-        # tp.Dcc.connect_attribute(attribute_control.meta_node, attribute_name, joint_buffer, 'rotateY')
+        # dcc.add_double_attribute(attribute_control.meta_node, attribute_name, keyable=True)
+        # dcc.connect_attribute(attribute_control.meta_node, attribute_name, joint_buffer, 'rotateY')
 
         return new_joint, joint_buffer, joint_driver

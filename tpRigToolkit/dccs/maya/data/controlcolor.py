@@ -10,7 +10,7 @@ from __future__ import print_function, division, absolute_import
 import logging
 import traceback
 
-import tpDcc as tp
+from tpDcc import dcc
 from tpDcc.libs.python import fileio, python, path as path_utils
 from tpDcc.dccs.maya.core import shape as shape_utils
 from tpDcc.dccs.maya.data import base
@@ -48,7 +48,7 @@ class ControlColorFileData(base.MayaCustomData, object):
         return file_path
 
     def export_data(self, file_path=None, comment='-', create_version=True, *args, **kwargs):
-        if not tp.is_maya():
+        if not dcc.is_maya():
             LOGGER.warning('Data must be exported from within Maya!')
             return False
 
@@ -60,7 +60,7 @@ class ControlColorFileData(base.MayaCustomData, object):
 
         objects = kwargs.get('objects', list())
         # We make sure that we store the short name of the controls
-        objects = [tp.Dcc.node_short_name(obj) for obj in objects]
+        objects = [dcc.node_short_name(obj) for obj in objects]
         controls = objects or controllib.get_controls()
         if not controls:
             LOGGER.warning('No controls found to export.')
@@ -86,7 +86,7 @@ class ControlColorFileData(base.MayaCustomData, object):
         return True
 
     def import_data(self, file_path='', objects=None):
-        if not tp.is_maya():
+        if not dcc.is_maya():
             LOGGER.warning('Data must be exported from within Maya!')
             return False
 
@@ -143,28 +143,28 @@ class ControlColorFileData(base.MayaCustomData, object):
         return True
 
     def _get_color_dict(self, curve):
-        if not tp.Dcc.object_exists(curve):
+        if not dcc.node_exists(curve):
             return None
 
         sub_colors = list()
         main_color = None
 
-        if tp.Dcc.get_attribute_value(curve, 'overrideEnabled'):
-            main_color = tp.Dcc.get_attribute_value(curve, 'overrideColor')
-            if tp.Dcc.attribute_exists(curve, 'overrideColorRGB'):
-                curve_rgb = tp.Dcc.get_attribute_value(curve, 'overrideColorRGB')
-                curve_rgb_state = tp.Dcc.get_attribute_value(curve, 'overrideRGBColors')
+        if dcc.get_attribute_value(curve, 'overrideEnabled'):
+            main_color = dcc.get_attribute_value(curve, 'overrideColor')
+            if dcc.attribute_exists(curve, 'overrideColorRGB'):
+                curve_rgb = dcc.get_attribute_value(curve, 'overrideColorRGB')
+                curve_rgb_state = dcc.get_attribute_value(curve, 'overrideRGBColors')
                 main_color = [main_color, curve_rgb, curve_rgb_state]
 
         shapes = shape_utils.get_shapes(curve) or list()
         one_passed = False
         for shape in shapes:
-            if tp.Dcc.get_attribute_value(shape, 'overrideEnabled'):
+            if dcc.get_attribute_value(shape, 'overrideEnabled'):
                 one_passed = True
-            curve_color = tp.Dcc.get_attribute_value(shape, 'overrideColor')
-            if tp.Dcc.attribute_exists(shape, 'overrideColorRGB'):
-                curve_rgb = tp.Dcc.get_attribute_value(shape, 'overrideColorRGB')
-                curve_rgb_state = tp.Dcc.get_attribute_value(shape, 'overrideRGBColors')
+            curve_color = dcc.get_attribute_value(shape, 'overrideColor')
+            if dcc.attribute_exists(shape, 'overrideColorRGB'):
+                curve_rgb = dcc.get_attribute_value(shape, 'overrideColorRGB')
+                curve_rgb_state = dcc.get_attribute_value(shape, 'overrideRGBColors')
                 sub_colors.append([curve_color, curve_rgb, curve_rgb_state])
             else:
                 sub_colors.append(curve_color)
@@ -174,7 +174,7 @@ class ControlColorFileData(base.MayaCustomData, object):
         return {'main': main_color, 'sub': sub_colors}
 
     def _set_color_dict(self, curve, color_dict):
-        if not tp.Dcc.object_exists(curve):
+        if not dcc.node_exists(curve):
             return
 
         main_color = color_dict['main']
@@ -182,82 +182,82 @@ class ControlColorFileData(base.MayaCustomData, object):
 
         try:
             if main_color > 0:
-                current_color = tp.Dcc.get_attribute_value(curve, 'overrideColor')
+                current_color = dcc.get_attribute_value(curve, 'overrideColor')
                 if not current_color == main_color:
-                    tp.Dcc.set_attribute_value(curve, 'overrideEnabled', True)
+                    dcc.set_attribute_value(curve, 'overrideEnabled', True)
                     if main_color:
                         if type(main_color) != list:
-                            tp.Dcc.set_attribute_value(curve, 'overrideColor', main_color)
+                            dcc.set_attribute_value(curve, 'overrideColor', main_color)
                         else:
-                            tp.Dcc.set_attribute_value(curve, 'overrideColor', main_color[0])
-                            tp.Dcc.set_attribute_value(curve, 'overrideRGBColors', main_color[2])
+                            dcc.set_attribute_value(curve, 'overrideColor', main_color[0])
+                            dcc.set_attribute_value(curve, 'overrideRGBColors', main_color[2])
                             if len(main_color[1]) == 1:
-                                tp.Dcc.set_attribute_value(curve, 'overrideColorRGB', *main_color[1][0])
+                                dcc.set_attribute_value(curve, 'overrideColorRGB', *main_color[1][0])
                             elif len(main_color[1]) > 1:
-                                tp.Dcc.set_attribute_value(curve, 'overrideColorRGB', *main_color[1])
+                                dcc.set_attribute_value(curve, 'overrideColorRGB', *main_color[1])
                         if main_color[2]:
-                            LOGGER.info('{} color of RGB {}'.format(tp.Dcc.node_short_name(curve), main_color[1][0]))
+                            LOGGER.info('{} color of RGB {}'.format(dcc.node_short_name(curve), main_color[1][0]))
                         else:
-                            LOGGER.info('{} color of index {}'.format(tp.Dcc.node_short_name(curve), main_color[1]))
+                            LOGGER.info('{} color of index {}'.format(dcc.node_short_name(curve), main_color[1]))
 
             if sub_color:
                 shapes = shape_utils.get_shapes(curve)
                 index = 0
                 for shape in shapes:
-                    sub_current_color = tp.Dcc.get_attribute_value(shape, 'overrideColor')
+                    sub_current_color = dcc.get_attribute_value(shape, 'overrideColor')
                     if sub_current_color == sub_color[index]:
                         index += 1
                         continue
                     if sub_color[index] == 0:
                         index += 1
                         continue
-                    tp.Dcc.set_attribute_value(shape, 'overrideEnabled', True)
+                    dcc.set_attribute_value(shape, 'overrideEnabled', True)
                     if index < len(sub_color):
                         if type(sub_color[index]) != list:
-                            tp.Dcc.set_attribute_value(shape, 'overrideColor', sub_color[index])
+                            dcc.set_attribute_value(shape, 'overrideColor', sub_color[index])
                         else:
-                            tp.Dcc.set_attribute_value(shape, 'overrideColor', sub_color[index][0])
-                            tp.Dcc.set_attribute_value(shape, 'overrideRGBColors', sub_color[index][2])
+                            dcc.set_attribute_value(shape, 'overrideColor', sub_color[index][0])
+                            dcc.set_attribute_value(shape, 'overrideRGBColors', sub_color[index][2])
                             if len(sub_color[index][1]) == 1:
                                 is_connected = False
                                 for channel in 'RGB':
-                                    if tp.Dcc.is_attribute_connected(shape, 'overrideColor{}'.format(channel)):
+                                    if dcc.is_attribute_connected(shape, 'overrideColor{}'.format(channel)):
                                         is_connected = True
                                         break
                                 if is_connected:
-                                    parent = tp.Dcc.node_parent(shape)
-                                    if parent and tp.Dcc.attribute_exists(parent, 'color'):
-                                        tp.Dcc.set_attribute_value(parent, 'color', sub_color[index][1][0])
-                                        override_enabled = tp.Dcc.get_attribute_value(shape, 'overrideEnabled')
+                                    parent = dcc.node_parent(shape)
+                                    if parent and dcc.attribute_exists(parent, 'color'):
+                                        dcc.set_attribute_value(parent, 'color', sub_color[index][1][0])
+                                        override_enabled = dcc.get_attribute_value(shape, 'overrideEnabled')
                                         if override_enabled:
-                                            tp.Dcc.set_attribute_value(shape, 'overrideEnabled', False)
-                                            tp.Dcc.set_attribute_value(shape, 'overrideEnabled', True)
+                                            dcc.set_attribute_value(shape, 'overrideEnabled', False)
+                                            dcc.set_attribute_value(shape, 'overrideEnabled', True)
                                     else:
                                         LOGGER.warning(
                                             'Impossible to set control color because override color '
                                             'attributes are connected!')
                                 else:
-                                    tp.Dcc.set_attribute_value(shape, 'overrideColorRGB', sub_color[index][1][0])
+                                    dcc.set_attribute_value(shape, 'overrideColorRGB', sub_color[index][1][0])
                             elif len(sub_color[index][1]) > 1:
                                 is_connected = False
                                 for channel in 'RGB':
-                                    if tp.Dcc.is_attribute_connected(shape, 'overrideColor{}'.format(channel)):
+                                    if dcc.is_attribute_connected(shape, 'overrideColor{}'.format(channel)):
                                         is_connected = True
                                         break
                                 if is_connected:
-                                    parent = tp.Dcc.node_parent(shape)
-                                    if parent and tp.Dcc.attribute_exists(parent, 'color'):
-                                        tp.Dcc.set_attribute_value(parent, 'color', sub_color[index][1][0])
+                                    parent = dcc.node_parent(shape)
+                                    if parent and dcc.attribute_exists(parent, 'color'):
+                                        dcc.set_attribute_value(parent, 'color', sub_color[index][1][0])
                                     else:
                                         LOGGER.warning(
                                             'Impossible to set control color because override color '
                                             'attributes are connected!')
                                 else:
-                                    tp.Dcc.set_attribute_value(shape, 'overrideColorRGB', sub_color[index][1])
+                                    dcc.set_attribute_value(shape, 'overrideColorRGB', sub_color[index][1])
                         if sub_color[index][2]:
-                            LOGGER.info('{} color of RGB {}'.format(tp.Dcc.node_short_name(curve), sub_color[index][1][0]))
+                            LOGGER.info('{} color of RGB {}'.format(dcc.node_short_name(curve), sub_color[index][1][0]))
                         else:
-                            LOGGER.info('{} color of index {}'.format(tp.Dcc.node_short_name(curve), sub_color[index][1]))
+                            LOGGER.info('{} color of index {}'.format(dcc.node_short_name(curve), sub_color[index][1]))
                     index += 1
         except Exception:
             LOGGER.error('Error while applying color to: "{}" | {}'.format(curve, traceback.format_exc()))

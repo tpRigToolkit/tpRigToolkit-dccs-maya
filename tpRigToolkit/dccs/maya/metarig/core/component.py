@@ -7,10 +7,13 @@ Module that contains abstract implementation for tpRigTask rig components for Ma
 
 from __future__ import print_function, division, absolute_import
 
+import logging
+
 from tpDcc.dccs.maya.meta import metanode
 
-import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import mixin
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class RigComponent(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
@@ -154,11 +157,11 @@ class RigComponent(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
         """
 
         if not jnt:
-            tpRigToolkit.logger.warning('No joint to check')
+            LOGGER.warning('No joint to check')
             return False
 
         if not jnt or not jnt.node_type() == 'joint':
-            tpRigToolkit.logger.warning('Joint node: "{}" is not valid!'.format(jnt))
+            LOGGER.warning('Joint node: "{}" is not valid!'.format(jnt))
             return False
 
         return True
@@ -170,11 +173,11 @@ class RigComponent(metanode.MetaNode, mixin.CoreMixin, mixin.ControlMixin):
         """
 
         if not loc:
-            tpRigToolkit.logger.warning('No locator to check')
+            LOGGER.warning('No locator to check')
             return False
 
         if not loc or not loc.node_type() == 'transform':
-            tpRigToolkit.logger.warning('Locator node: "{}" is not valid!'.format(loc))
+            LOGGER.warning('Locator node: "{}" is not valid!'.format(loc))
             return False
 
         return True

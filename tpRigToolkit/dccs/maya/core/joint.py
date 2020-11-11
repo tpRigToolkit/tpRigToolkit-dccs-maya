@@ -5,8 +5,9 @@
 Module that contains joint functions for tpRigToolkit-dccs-maya
 """
 
+import maya.cmds
+
 from tpDcc.libs.python import mathlib
-import tpDcc.dccs.maya as maya
 from tpDcc.dccs.maya.core import decorators, name as name_utils, curve as curve_utils, attribute as attr_utils
 from tpDcc.dccs.maya.core import transform as transform_utils
 

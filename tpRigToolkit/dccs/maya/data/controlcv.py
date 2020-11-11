@@ -9,9 +9,9 @@ from __future__ import print_function, division, absolute_import
 
 import logging
 
-from Qt.QtWidgets import *
+from Qt.QtWidgets import QSizePolicy, QListWidget, QListWidgetItem
 
-import tpDcc as tp
+from tpDcc import dcc
 from tpDcc.libs.python import fileio, python, path as path_utils
 from tpDcc.libs.qt.widgets import buttons, dividers, search
 from tpDcc.libs.qt.widgets.library import loadwidget
@@ -42,13 +42,13 @@ class ControlCVsFileData(base.MayaCustomData, object):
         return 'Control CVs'
 
     def export_data(self, file_path=None, comment='-', create_version=True, *args, **kwargs):
-        if not tp.is_maya():
+        if not dcc.is_maya():
             LOGGER.warning('Data must be exported from within Maya!')
             return False
 
         objects = kwargs.get('objects', list())
         # We make sure that we store the short name of the controls
-        objects = [tp.Dcc.node_short_name(obj) for obj in objects]
+        objects = [dcc.node_short_name(obj) for obj in objects]
 
         library = self._initialize_library(file_path)
         controls = objects or controllib.get_controls()
@@ -77,7 +77,7 @@ class ControlCVsFileData(base.MayaCustomData, object):
         return True
 
     def import_data(self, file_path='', objects=None):
-        if not tp.is_maya():
+        if not dcc.is_maya():
             LOGGER.warning('Data must be exported from within Maya!')
             return False
 
@@ -85,7 +85,7 @@ class ControlCVsFileData(base.MayaCustomData, object):
 
         if objects:
             # We make sure that we store the short name of the controls
-            objects = [tp.Dcc.node_short_name(obj) for obj in objects]
+            objects = [dcc.node_short_name(obj) for obj in objects]
         controls = objects or controllib.get_controls()
         for control in controls:
             shapes = shape_utils.get_shapes(control)
@@ -110,8 +110,8 @@ class ControlCVsFileData(base.MayaCustomData, object):
         curves_list = python.force_list(curve_name)
         library = self._initialize_library(file_name)
         library.set_active_library(self.name)
-        for curve in curves_list:
-            library.remove_curve(curve)
+        for curve_found in curves_list:
+            library.remove_curve(curve_found)
         library.write_data_to_file()
 
         return True

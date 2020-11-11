@@ -7,12 +7,12 @@ Module that contains rig component to create Ribbon setups
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
+from tpDcc import dcc
 from tpDcc.dccs.maya.meta import metanode
-from tpDcc.dccs.maya.core import geometry as geo_utils, deformer as deform_utils, transform as xform_utils
+from tpDcc.dccs.maya.core import geometry as geo_utils, transform as xform_utils, cluster as cluster_utils
 from tpDcc.dccs.maya.core import rivet as rivet_utils, follicle as follicle_utils
 
-import tpRigToolkit
+from tpRigToolkit.managers import names
 from tpRigToolkit.dccs.maya.metarig.components import joint
 
 
@@ -209,7 +209,7 @@ class NurbsRibbon(joint.JointComponent, object):
             offset_axis=self.ribbon_offset_axis
         )
 
-        tp.Dcc.set_attribute_value(surface, 'inheritsTransform', False)
+        dcc.set_attribute_value(surface, 'inheritsTransform', False)
         surface = metanode.validate_obj_arg(surface, 'MetaObject', update_class=True)
         self.set_surface(surface)
         self.surface.set_parent(self.setup_group)
@@ -227,7 +227,7 @@ class NurbsRibbon(joint.JointComponent, object):
         cluster_name = self._get_name(self.name, 'nurbsRibbon', node_type='cluster')
         last_pivot_end = True if self.last_pivot_top_value else False
 
-        cluster_surface = deform_utils.ClusterSurface(geometry=self.surface.meta_node, name=cluster_name)
+        cluster_surface = cluster_utils.ClusterSurface(geometry=self.surface.meta_node, name=cluster_name)
         cluster_surface.set_first_cluster_pivot_at_start(True)
         cluster_surface.set_last_cluster_pivot_at_end(last_pivot_end)
         cluster_surface.set_join_ends(True)
@@ -271,42 +271,41 @@ class NurbsRibbon(joint.JointComponent, object):
             if self.create_ribbon_buffer_group:
                 base_name = self.name if self.has_attr('name') and self.name else self.base_name
                 naming_file, naming_rule = self._get_naming_data()
-                parsed_name = tpRigToolkit.NamesMgr().parse_name(self.base_name, naming_file=naming_file,
-                                                                 rule_name=naming_rule)
+                parsed_name = names.parse_name(self.base_name, naming_file=naming_file, rule_name=naming_rule)
                 if parsed_name:
                     # TODO: Allow to put the root in the first key (prefix) or in the last one (suffix)
                     parsed_name[list(parsed_name.keys())[-1]] = group_name
                     buffer_group_name = self._get_name(group_name, 'ribbonBuffer', node_type='group')
                 else:
                     buffer_group_name = self._get_name(base_name, group_name, 'ribbonBuffer', node_type='group')
-                buffer_group = tp.Dcc.create_empty_group(name=buffer_group_name)
-                driver = tp.Dcc.create_buffer_group(buffer_group)
-                tp.Dcc.match_translation_rotation(joint, driver)
+                buffer_group = dcc.create_empty_group(name=buffer_group_name)
+                driver = dcc.create_buffer_group(buffer_group)
+                dcc.match_translation_rotation(joint, driver)
 
             if buffer_group:
                 if self.ribbon_follicle:
                     follicle = follicle_utils.follicle_to_surface(driver, self.surface.meta_node, constraint=False)
                     nurb_follow = follicle
-                    tp.Dcc.set_attribute_value(follicle, 'inheritsTransform', False)
-                    tp.Dcc.create_parent_constraint(joint, buffer_group, maintain_offset=True)
-                    tp.Dcc.set_parent(follicle, rivet_group.meta_node)
+                    dcc.set_attribute_value(follicle, 'inheritsTransform', False)
+                    dcc.create_parent_constraint(joint, buffer_group, maintain_offset=True)
+                    dcc.set_parent(follicle, rivet_group.meta_node)
                 else:
                     rivet = rivet_utils.attach_to_surface(driver, self.surface.meta_node, constraint=False)
                     nurb_follow = rivet
-                    tp.Dcc.set_attribute_value(rivet, 'inheritsTransform', False)
-                    tp.Dcc.create_parent_constraint(joint, buffer_group, maintain_offset=True)
-                    tp.Dcc.set_parent(rivet, rivet_group.meta_node)
+                    dcc.set_attribute_value(rivet, 'inheritsTransform', False)
+                    dcc.create_parent_constraint(joint, buffer_group, maintain_offset=True)
+                    dcc.set_parent(rivet, rivet_group.meta_node)
             else:
                 if self.ribbon_follicle:
                     follicle = follicle_utils.follicle_to_surface(joint, self.surface.meta_node, constraint=False)
                     nurb_follow = follicle
-                    tp.Dcc.set_attribute_value(follicle, 'inheritsTransform', False)
-                    tp.Dcc.set_parent(follicle, rivet_group.meta_node)
+                    dcc.set_attribute_value(follicle, 'inheritsTransform', False)
+                    dcc.set_parent(follicle, rivet_group.meta_node)
                 else:
                     rivet = rivet_utils.attach_to_surface(joint, self.surface.meta_node, constraint=False)
                     nurb_follow = rivet
-                    tp.Dcc.set_attribute_value(rivet, 'inheritsTransform', False)
-                    tp.Dcc.set_parent(rivet, rivet_group.meta_node)
+                    dcc.set_attribute_value(rivet, 'inheritsTransform', False)
+                    dcc.set_parent(rivet, rivet_group.meta_node)
 
             ribbon_follows.append(nurb_follow)
 
@@ -328,15 +327,15 @@ class NurbsRibbon(joint.JointComponent, object):
         ribbon_follows = self.get_ribbon_follows(as_meta=False)
 
         for joint, ribbon_follow in zip(joints, ribbon_follows):
-            relatives = tp.Dcc.list_relatives(ribbon_follow, relative_type='transform')
+            relatives = dcc.list_relatives(ribbon_follow, relative_type='transform')
             for child in relatives:
-                shape_type = tp.Dcc.node_shape_type(child)
+                shape_type = dcc.node_shape_type(child)
                 if shape_type == 'locator':
                     relatives = child
 
             if last_follow:
                 axis = xform_utils.get_axis_aimed_at_child(joint)
-                tp.Dcc.create_aim_constraint(
+                dcc.create_aim_constraint(
                     last_follow, joint, aim_vector=axis, up_vector=self.aim_ribbon_joints_up,
                     world_up_axis='objectrotation', world_up_object=last_parent, maintain_offset=True
                 )

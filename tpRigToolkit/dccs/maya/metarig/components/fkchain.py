@@ -7,11 +7,15 @@ Module that contains base FK chain rig metarig implementation for Maya
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import logging
 
-import tpRigToolkit
+import maya.cmds
+
+from tpDcc import dcc
+
 from tpRigToolkit.dccs.maya.metarig.components import buffer
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class FkChainComponent(buffer.BufferComponent, object):
@@ -165,11 +169,11 @@ class FkChainComponent(buffer.BufferComponent, object):
             if increment and increment in self.increment_offset_rotation:
                 offset_rotation = self.increment_offset_rotation[increment]
             if offset_rotation:
-                tp.Dcc.rotate_node_in_object_space(xform, offset_rotation)
+                dcc.rotate_node_in_object_space(xform, offset_rotation)
 
-        tp.Dcc.create_parent_constraint(target_transform, control.meta_node, maintain_offset=True)
+        dcc.create_parent_constraint(target_transform, control.meta_node, maintain_offset=True)
         if self.scalable:
-            tp.Dcc.create_scale_constraint(target_transform, control.meta_node, maintain_offset=True)
+            dcc.create_scale_constraint(target_transform, control.meta_node, maintain_offset=True)
             control.show_scale_attributes()
 
     def _setup(self, transforms=None):
@@ -181,7 +185,7 @@ class FkChainComponent(buffer.BufferComponent, object):
         if transforms is None:
             transforms = self.get_buffer_joints(as_meta=True)
         if not transforms:
-            tpRigToolkit.logger.warning('Impossible to create FK chain because buffer joints are not created yet!')
+            LOGGER.warning('Impossible to create FK chain because buffer joints are not created yet!')
             return
 
         found_to_skip = list()
@@ -294,7 +298,7 @@ class FkChainComponent(buffer.BufferComponent, object):
         else:
             parent_ctrl = controls[current_increment - 1]
         if not parent_ctrl:
-            tpRigToolkit.logger.warning('Impossible to retrieve FK Parent control for: {}'.format(control))
+            LOGGER.warning('Impossible to retrieve FK Parent control for: {}'.format(control))
             return
         control.set_parent(parent_ctrl)
 

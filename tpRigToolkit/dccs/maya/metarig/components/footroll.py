@@ -7,12 +7,16 @@ Module that contains foot roll rig metarig implementations for Maya
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import logging
+
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.meta import metanode, metautils
 
-import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import component, mixin
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class FootRollComponent(component.RigComponent, mixin.JointMixin):
@@ -46,7 +50,7 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
 
         joints = self.get_joints()
         if not len(joints) == 7:
-            tpRigToolkit.logger.warning(
+            LOGGER.warning(
                 '6 joints must be defined (yawIn, yawOut, heel, mid, toe, ball, ankle) to create root setup!')
             return
 
@@ -57,10 +61,10 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
         self.add_attribute('ball', value=joints[4], attr_type='messageSimple')
         self.add_attribute('toe', value=joints[5], attr_type='messageSimple')
 
-        tp.Dcc.add_title_attribute(self.foot_roll_control.meta_node, 'FOOT_CONTROLS')
+        dcc.add_title_attribute(self.foot_roll_control.meta_node, 'FOOT_CONTROLS')
 
         if self.create_roll_controls:
-            tp.Dcc.add_bool_attribute(self.foot_roll_control.meta_node, 'controlVisibility', self.sub_visibility)
+            dcc.add_bool_attribute(self.foot_roll_control.meta_node, 'controlVisibility', self.sub_visibility)
 
         self._create_roll_attributes()
 
@@ -233,18 +237,18 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
             new_control.hide_scale_and_visibility_attributes()
             new_control.hide_translate_attributes()
 
-            if tp.Dcc.attribute_exists(self.foot_roll_control.meta_node, 'controlVisibility'):
+            if dcc.attribute_exists(self.foot_roll_control.meta_node, 'controlVisibility'):
                 control_shape = new_control.get_shapes()
                 for shape in control_shape:
-                    tp.Dcc.connect_attribute(self.foot_roll_control.meta_node, 'controlVisibility', shape, 'visibility')
+                    dcc.connect_attribute(self.foot_roll_control.meta_node, 'controlVisibility', shape, 'visibility')
 
         if not self.create_roll_controls or no_control:
-            new_control = tp.Dcc.create_empty_group(name=self._get_name(self.name, name, node_type='control'))
-            root_group = tp.Dcc.create_buffer_group(new_control)
-            driver_group = tp.Dcc.create_buffer_group(new_control, suffix='driver')
+            new_control = dcc.create_empty_group(name=self._get_name(self.name, name, node_type='control'))
+            root_group = dcc.create_buffer_group(new_control)
+            driver_group = dcc.create_buffer_group(new_control, suffix='driver')
             # TODO: We should connect buffer and driver groups to new control using messages
-            tp.Dcc.match_translation(root_group, source_transform)
-            tp.Dcc.match_rotation(root_group, self.get_joints(as_meta=False)[-1])
+            dcc.match_translation(root_group, source_transform)
+            dcc.match_rotation(root_group, self.get_joints(as_meta=False)[-1])
             new_control = metanode.validate_obj_arg(new_control, 'MetaObject', update_class=True)
             root_group = metanode.validate_obj_arg(root_group, 'MetaObject', update_class=True)
             driver_group = metanode.validate_obj_arg(driver_group, 'MetaObject', update_class=True)
@@ -260,14 +264,14 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
         roll_control = self.foot_roll_control.meta_node
 
         if self.create_foot_roll:
-            tp.Dcc.add_double_attribute(roll_control, 'footRoll', keyable=True)
-            tp.Dcc.add_double_attribute(roll_control, 'footRoll', default_value=30, footRollAngle=True)
+            dcc.add_double_attribute(roll_control, 'footRoll', keyable=True)
+            dcc.add_double_attribute(roll_control, 'footRoll', default_value=30, footRollAngle=True)
 
         if self.create_ankle_roll:
-            tp.Dcc.add_double_attribute(roll_control, 'ankleRoll', keyable=True)
+            dcc.add_double_attribute(roll_control, 'ankleRoll', keyable=True)
 
         for attr_name in ['ballRoll', 'toeRoll', 'heelRoll', 'yawRoll']:
-            tp.Dcc.add_double_attribute(roll_control, attr_name, keyable=True)
+            dcc.add_double_attribute(roll_control, attr_name, keyable=True)
 
     def _create_toe_rotate_control(self):
         """
@@ -276,12 +280,12 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
 
         roll_control = self.foot_roll_control.meta_node
 
-        tp.Dcc.add_double_attribute(roll_control, 'toeRotate', keyable=True)
+        dcc.add_double_attribute(roll_control, 'toeRotate', keyable=True)
 
         if self.toe_rotate_as_locator:
-            toe_control = tp.Dcc.create_locator(name=self._get_name(self.name, 'toeRotate', node_type='locator'))
-            toe_control_root = tp.Dcc.create_buffer_group(toe_control)
-            tp.Dcc.connect_attribute(
+            toe_control = dcc.create_locator(name=self._get_name(self.name, 'toeRotate', node_type='locator'))
+            toe_control_root = dcc.create_buffer_group(toe_control)
+            dcc.connect_attribute(
                 roll_control, 'toeRotate', toe_control, 'rotate{}'.format(self.forward_roll_axis.upper()))
         else:
             toe_control = self.create_control('toeRotate', sub=True, control_data=self.toe_control_data)
@@ -289,11 +293,11 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
             toe_control.hide_scale_and_visibility_attributes()
             toe_control_root = toe_control.create_root().meta_node
             toe_control_driver = toe_control.create_auto('driver')
-            tp.Dcc.connect_attribute(
+            dcc.connect_attribute(
                 roll_control, 'toeRotate', toe_control_driver.meta_node,
                 'rotate{}'.format(self.forward_roll_axis.upper()))
 
-        tp.Dcc.match_translation_rotation(self.ball.meta_node, toe_control_root)
+        dcc.match_translation_rotation(self.ball.meta_node, toe_control_root)
 
         return toe_control.meta_node, toe_control_root
 
@@ -346,10 +350,10 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
         yawout_roll_root.set_parent(self.heel_roll)
 
         final_value = 10
-        if self.mirror_yaw and tp.Dcc.name_is_right(self.side):
+        if self.mirror_yaw and dcc.name_is_right(self.side):
             final_value = -10
         final_other_value = -45
-        if self.mirror_yaw and tp.Dcc.name_is_right(self.side):
+        if self.mirror_yaw and dcc.name_is_right(self.side):
             final_other_value = 45
 
         for driven_keys in [(0, 0), (final_value, final_other_value)]:
@@ -359,7 +363,7 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
                 driverValue=driven_keys[0], value=driven_keys[1], itt='spline', ott='spline'
             )
 
-        if self.mirror_yaw and tp.Dcc.name_is_right(self.side):
+        if self.mirror_yaw and dcc.name_is_right(self.side):
             maya.cmds.setInfinity(
                 '{}.rotate{}'.format(yawout_roll_driver.meta_node, self.side_roll_axis), preInfinite='linear')
         else:
@@ -377,10 +381,10 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
         yawin_roll_root.set_parent(self.yawout_roll)
 
         final_value = -10
-        if self.mirror_yaw and tp.Dcc.name_is_right(self.side):
+        if self.mirror_yaw and dcc.name_is_right(self.side):
             final_value = 10
         final_other_value = 45
-        if self.mirror_yaw and tp.Dcc.name_is_right(self.side):
+        if self.mirror_yaw and dcc.name_is_right(self.side):
             final_other_value = -45
 
         for driven_keys in [(0, 0), (final_value, final_other_value)]:
@@ -390,7 +394,7 @@ class FootRollComponent(component.RigComponent, mixin.JointMixin):
                 driverValue=driven_keys[0], value=driven_keys[1], itt='spline', ott='spline'
             )
 
-        if self.mirror_yaw and tp.Dcc.name_is_right(self.side):
+        if self.mirror_yaw and dcc.name_is_right(self.side):
             maya.cmds.setInfinity(
                 '{}.rotate{}'.format(yawin_roll_driver.meta_node, self.side_roll_axis), postInfinite='linear')
         else:

@@ -7,8 +7,9 @@ Module that contains base IK chain rig metarig implementation for Maya
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.meta import metanode
 from tpDcc.dccs.maya.core import ik as ik_utils, rig as rig_utils
 
@@ -316,18 +317,18 @@ class IkChainComponent(buffer.BufferComponent, object):
         :param control: str, name of the control we want to fix orient of
         """
 
-        if not self.right_side_fix or not tp.Dcc.name_is_right(side=self.side):
+        if not self.right_side_fix or not dcc.name_is_right(side=self.side):
             return
 
-        xform_locator = tp.Dcc.create_locator()
-        tp.Dcc.match_translation_rotation(control, xform_locator)
+        xform_locator = dcc.create_locator()
+        dcc.match_translation_rotation(control, xform_locator)
 
-        buffer_group = tp.Dcc.create_buffer_group(xform_locator)
-        tp.Dcc.set_attribute_value(xform_locator, 'rotateY', 180)
-        tp.Dcc.set_attribute_value(xform_locator, 'rotateZ', 180)
-        tp.Dcc.match_translation_rotation(xform_locator, control)
+        buffer_group = dcc.create_buffer_group(xform_locator)
+        dcc.set_attribute_value(xform_locator, 'rotateY', 180)
+        dcc.set_attribute_value(xform_locator, 'rotateZ', 180)
+        dcc.match_translation_rotation(xform_locator, control)
 
-        tp.Dcc.delete_object(buffer_group)
+        dcc.delete_node(buffer_group)
 
     def _create_ik_handle(self):
         """
@@ -345,21 +346,21 @@ class IkChainComponent(buffer.BufferComponent, object):
             buffer_joint = ik_chain[self.joint_index_to_handle].meta_node
 
         ik_solver = ik_utils.IkHandle.SOLVER_RP
-        ik_handle = tp.Dcc.create_ik_handle(
+        ik_handle = dcc.create_ik_handle(
             self._get_name(self.name, 'ikHandle', node_type='ikHandle'),
             start_joint=ik_chain[0].meta_node, end_joint=buffer_joint, solver_type=ik_solver)
         if self.create_ik_buffer_joint:
-            ik_handle_buffer = tp.Dcc.create_buffer_group(ik_handle)
+            ik_handle_buffer = dcc.create_buffer_group(ik_handle)
 
         ik_handle = metanode.validate_obj_arg(ik_handle, 'MetaObject', update_class=True)
         self.add_attribute('ik_handle', value=ik_handle, attr_type='messageSimple')
 
         if self.create_ik_buffer_joint:
-            tp.Dcc.set_parent(ik_handle_buffer, self.setup_group.meta_node)
-            tp.Dcc.hide_node(ik_handle_buffer)
+            dcc.set_parent(ik_handle_buffer, self.setup_group.meta_node)
+            dcc.hide_node(ik_handle_buffer)
         else:
-            tp.Dcc.set_parent(ik_handle.meta_node, self.setup_group.meta_node)
-            tp.Dcc.hide_node(ik_handle.meta_node)
+            dcc.set_parent(ik_handle.meta_node, self.setup_group.meta_node)
+            dcc.hide_node(ik_handle.meta_node)
 
     def _create_buffer_joint(self):
         """
@@ -370,16 +371,16 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         ik_chain = self.get_ik_chain()
 
-        buffer_joint = tp.Dcc.duplicate_object(ik_chain[self.joint_index_to_handle].meta_node, only_parent=True)[0]
-        tp.Dcc.set_parent(ik_chain[self.joint_index_to_handle].meta_node, buffer_joint)
-        if not tp.Dcc.is_attribute_connected_to_attribute(
+        buffer_joint = dcc.duplicate_node(ik_chain[self.joint_index_to_handle].meta_node, only_parent=True)[0]
+        dcc.set_parent(ik_chain[self.joint_index_to_handle].meta_node, buffer_joint)
+        if not dcc.is_attribute_connected_to_attribute(
                 buffer_joint, 'scale', ik_chain[self.joint_index_to_handle].meta_node, 'inverseScale'):
-            tp.Dcc.connect_attribute(
+            dcc.connect_attribute(
                 buffer_joint, 'scale', ik_chain[self.joint_index_to_handle].meta_node, 'inverseScale')
 
         for axis in 'XYZ':
             for attr_name in ['rotate', 'jointOrient']:
-                tp.Dcc.set_attribute_value(
+                dcc.set_attribute_value(
                     ik_chain[self.joint_index_to_handle].meta_node, '{}{}'.format(attr_name, axis), 0)
 
         return buffer_joint
@@ -395,12 +396,12 @@ class IkChainComponent(buffer.BufferComponent, object):
         ik_chain = self.get_ik_chain()
 
         if self.top_control_as_locator:
-            top_control = tp.Dcc.create_locator(name=self._get_name(self.name, 'topLocator', node_type='locator'))
+            top_control = dcc.create_locator(name=self._get_name(self.name, 'topLocator', node_type='locator'))
             top_control = metanode.validate_obj_arg(top_control, 'MetaObject', update_class=True)
         else:
             top_control = self.create_control('topControl')
-        tp.Dcc.hide_rotate_attributes(top_control.meta_node)
-        tp.Dcc.hide_scale_and_visibility_attributes(top_control.meta_node)
+        dcc.hide_rotate_attributes(top_control.meta_node)
+        dcc.hide_scale_and_visibility_attributes(top_control.meta_node)
 
         self.add_attribute(attr='top_control', value=top_control, attr_type='messageSimple')
 
@@ -409,16 +410,16 @@ class IkChainComponent(buffer.BufferComponent, object):
         else:
             root_group = self.top_control.create_root()
 
-        tp.Dcc.match_translation_rotation(ik_chain[0].meta_node, root_group.meta_node)
+        dcc.match_translation_rotation(ik_chain[0].meta_node, root_group.meta_node)
 
         self._fix_right_side_orient(root_group.meta_node)
 
-        if self.negate_right_scale and tp.Dcc.name_is_right(side=self.side):
+        if self.negate_right_scale and dcc.name_is_right(side=self.side):
             for i, axis in enumerate('XYZ'):
-                tp.Dcc.set_attribute_value(
+                dcc.set_attribute_value(
                     root_group.meta_node, 'scale{}'.format(axis), self.negate_right_scale_values[i])
 
-        tp.Dcc.create_parent_constraint(ik_chain[0].meta_node, top_control.meta_node, maintain_offset=True)
+        dcc.create_parent_constraint(ik_chain[0].meta_node, top_control.meta_node, maintain_offset=True)
 
     def _create_bottom_control(self):
         """
@@ -453,26 +454,26 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         # self._fix_right_side_orient(bottom_control_buffer.meta_node)
 
-        # if self.negate_right_scale and tp.Dcc.name_is_right(self.side):
+        # if self.negate_right_scale and dcc.name_is_right(self.side):
         #     for i, axis in enumerate('XYZ'):
-        #         tp.Dcc.set_attribute_value(bottom_control_buffer.meta_node, 'scale', self.negate_right_scale_values[i])
+        #         dcc.set_attribute_value(bottom_control_buffer.meta_node, 'scale', self.negate_right_scale_values[i])
 
         # TODO: Create world switch?????
 
-        tp.Dcc.create_point_constraint(self.ik_handle.meta_node, bottom_control.meta_node)
+        dcc.create_point_constraint(self.ik_handle.meta_node, bottom_control.meta_node)
 
-        # ik_handle_parent = tp.Dcc.node_parent(self.ik_handle.meta_node)
+        # ik_handle_parent = dcc.node_parent(self.ik_handle.meta_node)
         # if self.create_sub_controls:
-        #     tp.Dcc.set_parent(ik_handle_parent, sub_control.meta_node)
+        #     dcc.set_parent(ik_handle_parent, sub_control.meta_node)
         # else:
-        #     tp.Dcc.set_parent(ik_handle_parent, bottom_control.meta_node)
+        #     dcc.set_parent(ik_handle_parent, bottom_control.meta_node)
 
         if self.orient_constraint:
             if self.create_sub_controls:
-                tp.Dcc.create_orient_constraint(
+                dcc.create_orient_constraint(
                     ik_chain[self.joint_index_to_handle].meta_node, sub_control.meta_node, maintain_offset=True)
             else:
-                tp.Dcc.create_orient_constraint(
+                dcc.create_orient_constraint(
                     ik_chain[self.joint_index_to_handle].meta_node, bottom_control.meta_node, maintain_offset=True)
 
     def _create_pole_vector_control(self):
@@ -495,15 +496,15 @@ class IkChainComponent(buffer.BufferComponent, object):
         bottom_control = self.bottom_control
         pole_vector_control = self.pole_vector_control
 
-        tp.Dcc.add_title_attribute(bottom_control.meta_node, 'POLE_VECTOR')
-        tp.Dcc.add_bool_attribute(bottom_control.meta_node, 'poleVisibility', default_value=self.pole_vector_visibility)
+        dcc.add_title_attribute(bottom_control.meta_node, 'POLE_VECTOR')
+        dcc.add_bool_attribute(bottom_control.meta_node, 'poleVisibility', default_value=self.pole_vector_visibility)
 
-        tp.Dcc.add_integer_attribute(self.bottom_control.meta_node, 'twist')
-        if tp.Dcc.name_is_left(self.side):
-            tp.Dcc.connect_attribute(self.bottom_control.meta_node, 'twist', self.ik_handle.meta_node, 'twist')
+        dcc.add_integer_attribute(self.bottom_control.meta_node, 'twist')
+        if dcc.name_is_left(self.side):
+            dcc.connect_attribute(self.bottom_control.meta_node, 'twist', self.ik_handle.meta_node, 'twist')
         else:
             multiply_name = self._get_name(self.name, 'poleVectorTwistMult', node_type='multiply')
-            tp.Dcc.connect_multiply(
+            dcc.connect_multiply(
                 self.bottom_control.meta_node, 'twist', self.ik_handle.meta_node, 'twist',
                 value=-1, multiply_name=multiply_name)
 
@@ -514,22 +515,22 @@ class IkChainComponent(buffer.BufferComponent, object):
 
         # TODO: This offset should take into account the scale of the character and (the control?)
         # TODO: The movement of the pole vector should be optional. Add argument to support that.
-        pole_vector_position = tp.Dcc.get_pole_vector_position(
+        pole_vector_position = dcc.get_pole_vector_position(
             pole_joints[0], pole_joints[1], pole_joints[2], offset=self.pole_vector_control_offset)
-        tp.Dcc.move_node(
+        dcc.move_node(
             pole_vector_control.root_group.meta_node,
             pole_vector_position[0], pole_vector_position[1], pole_vector_position[2])
-        # tp.Dcc.match_translation(pole_joints[1], pole_vector_buffer_group.meta_node)
+        # dcc.match_translation(pole_joints[1], pole_vector_buffer_group.meta_node)
 
         self._create_pole_vector_constraint()
 
         name = self._get_name(self.name, 'poleVectorLine', node_type='poleVector')
         rig_line = rig_utils.RiggedLine(pole_joints[1], pole_vector_control.meta_node, name).create()
-        tp.Dcc.set_parent(rig_line, self.controls_group.meta_node)
+        dcc.set_parent(rig_line, self.controls_group.meta_node)
 
-        tp.Dcc.connect_attribute(
+        dcc.connect_attribute(
             bottom_control.meta_node, 'poleVisibility', pole_vector_control.root_group.meta_node, 'visibility')
-        tp.Dcc.connect_attribute(bottom_control.meta_node, 'poleVisibility', rig_line, 'visibility')
+        dcc.connect_attribute(bottom_control.meta_node, 'poleVisibility', rig_line, 'visibility')
 
     def _get_pole_joints(self, as_meta=True):
         """
@@ -562,7 +563,7 @@ class IkChainComponent(buffer.BufferComponent, object):
         Internal function that creates the pole vector constraint used by the Ik limb rig
         """
 
-        pole_vector_constraint = tp.Dcc.create_pole_vector_constraint(
+        pole_vector_constraint = dcc.create_pole_vector_constraint(
             self.pole_vector_control.meta_node, self.ik_handle.meta_node)
         pole_vector_constraint = metanode.validate_obj_arg(pole_vector_constraint, 'MetaNode', update_class=True)
         self.add_attribute('pole_vector_constraint', value=pole_vector_constraint, attr_type='messageSimple')

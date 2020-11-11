@@ -9,17 +9,22 @@ from __future__ import print_function, division, absolute_import
 
 import os
 import json
+import logging
 import threading
 from collections import OrderedDict
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import maya.cmds
+
+from tpDcc import dcc
+from tpDcc.dcc import progressbar
 from tpDcc.libs.python import fileio, folder, path as path_utils
 from tpDcc.dccs.maya.data import base
 from tpDcc.dccs.maya.core import helpers, shape as shape_utils, deformer as deform_utils
 from tpDcc.dccs.maya.core import decorators as maya_decorators, scene as scene_utils, geometry as geo_utils
 
 from tpRigToolkit.core import data
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class SkinWeightsData(base.MayaCustomData, object):
@@ -40,17 +45,17 @@ class SkinWeightsData(base.MayaCustomData, object):
 
     def export_data(self, file_path=None, comment='-', create_version=True, *args, **kwargs):
 
-        if not tp.is_maya():
-            maya.logger.warning('Data must be exported from within Maya!')
+        if not dcc.is_maya():
+            LOGGER.warning('Data must be exported from within Maya!')
             return False
 
         file_path = file_path or self.get_file()
 
         objects = kwargs.get('objects', None)
         if not objects:
-            objects = tp.Dcc.selected_nodes(full_path=True)
+            objects = dcc.selected_nodes(full_path=True)
         if not objects:
-            maya.logger.warning(
+            LOGGER.warning(
                 'Nothing selected to export skin weights of. Please, select a mesh,'
                 ' curve, NURBS surface or lattice with skin weights to export')
             return False
@@ -65,7 +70,7 @@ class SkinWeightsData(base.MayaCustomData, object):
         skin_weights = OrderedDict()
         for obj in objects:
             if shape_utils.is_a_shape(obj):
-                obj = tp.Dcc.node_parent(obj, full_path=True)
+                obj = dcc.node_parent(obj, full_path=True)
             obj_filename = obj
             if obj.find('|') > -1:
                 obj_filename = obj_filename.replace('|', '.')
@@ -76,7 +81,7 @@ class SkinWeightsData(base.MayaCustomData, object):
 
             skin = deform_utils.find_deformer_by_type(obj, 'skinCluster')
             if not skin:
-                maya.logger.warning('Skin exported failed! No skinCluster node found on "{}"'.format(obj))
+                LOGGER.warning('Skin exported failed! No skinCluster node found on "{}"'.format(obj))
                 return False
 
             geo_path = path_utils.join_path(file_folder, obj_filename)
@@ -84,7 +89,7 @@ class SkinWeightsData(base.MayaCustomData, object):
                 folder.delete_folder(obj_filename, file_folder)
             geo_path = folder.create_folder(obj_filename, file_folder)
             if not geo_path:
-                maya.logger.error(
+                LOGGER.error(
                     'Unable to create skin weights directory: "{}" in "{}"'.format(obj_filename, file_folder))
                 return False
 
@@ -98,7 +103,7 @@ class SkinWeightsData(base.MayaCustomData, object):
         for (obj, skin_node), (_, geo_path), (_, skin_weights) in zip(
                 skin_nodes.items(), geo_paths.items(), skin_weights.items()):
 
-            maya.logger.info('Exporting weights: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
+            LOGGER.info('Exporting weights: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
 
             info_lines = list()
             info_file = fileio.create_file('influence.info', geo_path)
@@ -122,17 +127,17 @@ class SkinWeightsData(base.MayaCustomData, object):
             if shape_utils.has_shape_of_type(obj, 'mesh'):
                 self._export_mesh_obj(obj, geo_path)
 
-            if tp.Dcc.attribute_exists(skin_node, 'blendWeights'):
+            if dcc.attribute_exists(skin_node, 'blendWeights'):
                 blend_weights = deform_utils.get_skin_blend_weights(skin_node)
                 setting_lines.append("['blendWeights', {}]".format(blend_weights))
-            if tp.Dcc.attribute_exists(skin_node, 'skinningMethod'):
-                skin_method = tp.Dcc.get_attribute_value(skin_node, 'skinningMethod')
+            if dcc.attribute_exists(skin_node, 'skinningMethod'):
+                skin_method = dcc.get_attribute_value(skin_node, 'skinningMethod')
                 setting_lines.append("['skinningMethod', {}]".format(skin_method))
 
             write_settings = fileio.FileWriter(settings_file)
             write_settings.write(setting_lines)
 
-            maya.logger.info('Skin weights exported successfully: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
+            LOGGER.info('Skin weights exported successfully: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
 
         data_to_save = OrderedDict()
         for obj, obj_filename in obj_dirs.items():
@@ -140,10 +145,11 @@ class SkinWeightsData(base.MayaCustomData, object):
         with open(file_path, 'w') as fh:
             json.dump(data_to_save, fh)
 
-        maya.logger.info('Skin weights export operation completed successfully!')
+        version = fileio.FileVersion(file_path)
+        if version.has_versions():
+            version.save(comment)
 
-        version = fileio.FileVersion(file_folder)
-        version.save(comment)
+        LOGGER.info('Skin weights export operation completed successfully!')
 
         return True
 
@@ -154,30 +160,30 @@ class SkinWeightsData(base.MayaCustomData, object):
         :param file_path: str, file path of file to load
         """
 
-        if not tp.is_maya():
-            maya.logger.warning('Data must be exported from within Maya!')
+        if not dcc.is_maya():
+            LOGGER.warning('Data must be exported from within Maya!')
             return False
 
         file_path = file_path or self.get_file()
         if not file_path or not os.path.isfile(file_path):
-            maya.logger.warning('Impossible to import skin weights from: "{}"'.format(file_path))
+            LOGGER.warning('Impossible to import skin weights from: "{}"'.format(file_path))
             return False
 
         with open(file_path, 'r') as fh:
             skin_data = json.load(fh)
         if not skin_data:
-            maya.logger.warning('No skin data found in file: "{}"'.format(file_path))
+            LOGGER.warning('No skin data found in file: "{}"'.format(file_path))
             return False
 
         file_folder = os.path.dirname(file_path)
         folders = folder.get_folders(file_folder)
 
         if not objects:
-            objects = tp.Dcc.selected_nodes(full_path=True) or list()
+            objects = dcc.selected_nodes(full_path=True) or list()
         for obj in objects:
             if obj in skin_data:
                 continue
-            skin_data[obj] = {'folder': tp.Dcc.node_short_name(obj), 'enabled': True}
+            skin_data[obj] = {'folder': dcc.node_short_name(obj), 'enabled': True}
 
         for obj, obj_data in skin_data.items():
             obj_folder = obj_data.get('folder', None)
@@ -187,7 +193,7 @@ class SkinWeightsData(base.MayaCustomData, object):
             obj_path = path_utils.clean_path(os.path.join(file_folder, obj_folder))
             if not obj_enabled or not os.path.isdir(obj_path):
                 continue
-            obj_exists = tp.Dcc.object_exists(obj)
+            obj_exists = dcc.node_exists(obj)
             if not obj_exists:
                 continue
 
@@ -195,7 +201,7 @@ class SkinWeightsData(base.MayaCustomData, object):
 
         self._center_view()
 
-        maya.logger.info('Imported "{}" skin data'.format(self.name))
+        LOGGER.info('Imported "{}" skin data'.format(self.name))
 
         return True
 
@@ -206,7 +212,7 @@ class SkinWeightsData(base.MayaCustomData, object):
         :return: list(str)
         """
 
-        if not tp.is_maya():
+        if not dcc.is_maya():
             return
 
         file_path = file_path or self.get_file()
@@ -228,7 +234,7 @@ class SkinWeightsData(base.MayaCustomData, object):
         :return: bool
         """
 
-        if not tp.is_maya():
+        if not dcc.is_maya():
             return
 
         file_path = file_path or self.get_file()
@@ -258,7 +264,7 @@ class SkinWeightsData(base.MayaCustomData, object):
         deform_utils.set_skin_envelope(mesh, 0)
 
         maya.cmds.select(mesh)
-        original_path = tp.Dcc.scene_name()
+        original_path = dcc.scene_name()
         mesh_path = '{}/mesh.obj'.format(data_path)
 
         try:
@@ -291,13 +297,13 @@ class SkinWeightsData(base.MayaCustomData, object):
         maya.cmds.file(mesh_path, i=True, type='OBJ', ignoreVersion=True, options='mo=1')
         delta = track.get_delta()
         if delta:
-            delta = tp.Dcc.node_parent(delta, full_path=True)
+            delta = dcc.node_parent(delta, full_path=True)
 
         return delta
 
     def _import_skin_weights(self, data_path, mesh):
 
-        if not tp.Dcc.object_exists(mesh) or not os.path.isdir(data_path):
+        if not dcc.node_exists(mesh) or not os.path.isdir(data_path):
             return False
 
         is_valid_mesh = False
@@ -307,25 +313,25 @@ class SkinWeightsData(base.MayaCustomData, object):
                 is_valid_mesh = True
                 break
         if not is_valid_mesh:
-            maya.logger.warning(
+            LOGGER.warning(
                 'Node "{}" is not a valid mesh node! Currently supported nodes include: {}'.format(mesh, shape_types))
             return False
 
-        maya.logger.info('Importing skin clusters {} --> "{}"'.format(mesh, data_path))
+        LOGGER.info('Importing skin clusters {} --> "{}"'.format(mesh, data_path))
 
         influence_dict = self._get_influences(data_path)
         if not influence_dict:
-            maya.logger.warning('No influences data found for: {}'.format(mesh))
+            LOGGER.warning('No influences data found for: {}'.format(mesh))
             return False
 
         influences = influence_dict.keys()
         if not influences:
-            maya.logger.warning('No influences found for: "{}"'.format(mesh))
+            LOGGER.warning('No influences found for: "{}"'.format(mesh))
             return False
         influences.sort()
-        maya.logger.debug('Influences found for {}: {}'.format(mesh, influences))
+        LOGGER.debug('Influences found for {}: {}'.format(mesh, influences))
 
-        short_name = tp.Dcc.node_short_name(mesh)
+        short_name = dcc.node_short_name(mesh)
         transfer_mesh = None
 
         if shape_utils.has_shape_of_type(mesh, 'mesh'):
@@ -336,24 +342,24 @@ class SkinWeightsData(base.MayaCustomData, object):
                     transfer_mesh = mesh
                     mesh = orig_mesh
                 else:
-                    tp.Dcc.delete_object(orig_mesh)
+                    dcc.delete_node(orig_mesh)
 
         # Check if there are duplicated influences and also for the creation of influences that does not currently
         # in the scene
         add_joints = list()
         remove_entries = list()
         for influence in influences:
-            joints = tp.Dcc.list_nodes(influence, full_path=True)
+            joints = dcc.list_nodes(influence, full_path=True)
             if type(joints) == list and len(joints) > 1:
                 add_joints.append(joints[0])
                 conflicting_count = len(joints)
-                maya.logger.warning(
+                LOGGER.warning(
                     'Found {} joints with name {}. Using only the first one: {}'.format(
                         conflicting_count, influence, joints[0]))
                 remove_entries.append(influence)
                 influence = joints[0]
-            if not tp.Dcc.object_exists(influence):
-                tp.Dcc.clear_selection()
+            if not dcc.node_exists(influence):
+                dcc.clear_selection()
                 maya.cmds.joint(n=influence, p=influence_dict[influence]['position'])
         for entry in remove_entries:
             influences.remove(entry)
@@ -362,15 +368,15 @@ class SkinWeightsData(base.MayaCustomData, object):
         # Create skin cluster and removes if it already exists
         skin_cluster = deform_utils.find_deformer_by_type(mesh, 'skinCluster')
         if skin_cluster:
-            tp.Dcc.delete_object(skin_cluster)
+            dcc.delete_node(skin_cluster)
         skin_cluster = maya.cmds.skinCluster(
-            influences, mesh, tsb=True, n=tp.Dcc.find_unique_name('skin_%s' % short_name))[0]
-        tp.Dcc.set_attribute_value(skin_cluster, 'normalizeWeights', 0)
+            influences, mesh, tsb=True, n=dcc.find_unique_name('skin_%s' % short_name))[0]
+        dcc.set_attribute_value(skin_cluster, 'normalizeWeights', 0)
         deform_utils.set_skin_weights_to_zero(skin_cluster)
 
         influence_index = 0
         influence_index_dict = deform_utils.get_skin_influences(skin_cluster, return_dict=True)
-        progress_bar = tp.DccProgressBar('Import Skin', len(influence_dict.keys()))
+        progress_bar = progressbar.ProgressBar('Import Skin', len(influence_dict.keys()))
         for influence in influences:
             orig_influence = influence
             if influence.count('|') > 1:
@@ -379,7 +385,7 @@ class SkinWeightsData(base.MayaCustomData, object):
                     influence = split_influence[-1]
             progress_bar.status('Importing skin mesh: {}, influence: {}'.format(short_name, influence))
             if 'weights' not in influence_dict[orig_influence]:
-                maya.logger.warning('Weights msissing for influence: {}. Skipping it ...'.format(influence))
+                LOGGER.warning('Weights msissing for influence: {}. Skipping it ...'.format(influence))
                 continue
             weights = influence_dict[orig_influence]['weights']
             if influence not in influence_index_dict:
@@ -419,15 +425,15 @@ class SkinWeightsData(base.MayaCustomData, object):
                 if attr_name == 'blendWeights':
                     deform_utils.set_skin_blend_weights(skin_cluster, value)
                 else:
-                    if tp.Dcc.attribute_exists(skin_cluster, attr_name):
-                        tp.Dcc.set_attribute_value(skin_cluster, attr_name, value)
+                    if dcc.attribute_exists(skin_cluster, attr_name):
+                        dcc.set_attribute_value(skin_cluster, attr_name, value)
 
         if transfer_mesh:
-            maya.logger.info('Import sking weights: mesh topology does not match. Trying to transfer topology ...')
+            LOGGER.info('Import sking weights: mesh topology does not match. Trying to transfer topology ...')
             deform_utils.skin_mesh_from_mesh(mesh, transfer_mesh)
-            tp.Dcc.delete_object(mesh)
+            dcc.delete_node(mesh)
 
-        maya.logger.info('Import skinCluster weights: {} from {}'.format(short_name, data_path))
+        LOGGER.info('Import skinCluster weights: {} from {}'.format(short_name, data_path))
 
         return True
 
@@ -462,7 +468,7 @@ class SkinWeightsData(base.MayaCustomData, object):
             try:
                 influence_dict = read_thread.run(influence_dict, folder_path, influence)
             except Exception as exc:
-                maya.logger.error(
+                LOGGER.error(
                     'Errors with influence "{}" while reading weight file: "{}" | {}'.format(influence, info_file, exc))
 
         return influence_dict
@@ -474,17 +480,17 @@ class MayaLoadWeightFileThread(threading.Thread, object):
 
     def run(self, influence_index, skin, weights, file_path):
         influence_name = deform_utils.get_skin_influence_at_index(influence_index, skin)
-        if not influence_name or not tp.Dcc.object_exists(influence_name):
+        if not influence_name or not dcc.node_exists(influence_name):
             return
         weight_path = fileio.create_file('{}.weights'.format(influence_name), file_path)
         if not path_utils.is_file(weight_path):
-            maya.logger.warning('"{}" is not a valid path to save skin weights into!'.format(file_path))
+            LOGGER.warning('"{}" is not a valid path to save skin weights into!'.format(file_path))
             return
 
         writer = fileio.FileWriter(weight_path)
         writer.write_line(weights)
 
-        influence_position = tp.Dcc.node_world_space_translation(influence_name)
+        influence_position = dcc.node_world_space_translation(influence_name)
 
         return "{'%s' : {'position' : %s}}" % (influence_name, str(influence_position))
 
@@ -556,26 +562,26 @@ class NgSkinWeightsData(SkinWeightsData, object):
 
     def export_data(self, file_path=None, comment='-', create_version=True, *args, **kwargs):
 
-        if not tp.is_maya():
-            maya.logger.warning('Data must be exported from within Maya!')
+        if not dcc.is_maya():
+            LOGGER.warning('Data must be exported from within Maya!')
             return False
 
         try:
-            if not tp.Dcc.is_plugin_loaded('ngSkinTools2'):
-                tp.Dcc.register_plugin('ngSkinTools2')
+            if not dcc.is_plugin_loaded('ngSkinTools2'):
+                dcc.register_plugin('ngSkinTools2')
             import ngSkinTools2
             from ngSkinTools2 import api as ngst_api
         except ImportError:
-            maya.logger.warning('NgSkinTools 2.0 is not installed. Impossible to export ngSkin data')
+            LOGGER.warning('NgSkinTools 2.0 is not installed. Impossible to export ngSkin data')
             return False
 
         file_path = file_path or self.get_file()
 
         objects = kwargs.get('objects', None)
         if not objects:
-            objects = tp.Dcc.selected_nodes(full_path=True)
+            objects = dcc.selected_nodes(full_path=True)
         if not objects:
-            maya.logger.warning(
+            LOGGER.warning(
                 'Nothing selected to export skin weights of. Please, select a mesh,'
                 ' curve, NURBS surface or lattice with skin weights to export')
             return False
@@ -590,7 +596,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
         skin_weights = OrderedDict()
         for obj in objects:
             if shape_utils.is_a_shape(obj):
-                obj = tp.Dcc.node_parent(obj, full_path=True)
+                obj = dcc.node_parent(obj, full_path=True)
             obj_filename = obj
             if obj.find('|') > -1:
                 obj_filename = obj_filename.replace('|', '.')
@@ -601,7 +607,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
 
             skin = deform_utils.find_deformer_by_type(obj, 'skinCluster')
             if not skin:
-                maya.logger.warning('Skin exported failed! No skinCluster node found on "{}"'.format(obj))
+                LOGGER.warning('Skin exported failed! No skinCluster node found on "{}"'.format(obj))
                 return False
 
             geo_path = path_utils.join_path(file_folder, obj_filename)
@@ -609,7 +615,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
                 folder.delete_folder(obj_filename, file_folder)
             geo_path = folder.create_folder(obj_filename, file_folder)
             if not geo_path:
-                maya.logger.error(
+                LOGGER.error(
                     'Unable to create skin weights directory: "{}" in "{}"'.format(obj_filename, file_folder))
                 return False
 
@@ -623,7 +629,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
         for (obj, skin_node), (_, geo_path), (_, skin_weights) in zip(
                 skin_nodes.items(), geo_paths.items(), skin_weights.items()):
 
-            maya.logger.info('Exporting weights: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
+            LOGGER.info('Exporting weights: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
 
             info_lines = list()
             info_file = fileio.create_file('influence.info', geo_path)
@@ -636,10 +642,10 @@ class NgSkinWeightsData(SkinWeightsData, object):
                     continue
 
                 influence_name = deform_utils.get_skin_influence_at_index(influence, skin_node)
-                if not influence_name or not tp.Dcc.object_exists(influence_name):
+                if not influence_name or not dcc.node_exists(influence_name):
                     continue
 
-                influence_position = tp.Dcc.node_world_space_translation(influence_name)
+                influence_position = dcc.node_world_space_translation(influence_name)
                 influence_line = "{'%s' : {'position' : %s}}" % (influence_name, str(influence_position))
                 info_lines.append(influence_line)
 
@@ -651,12 +657,12 @@ class NgSkinWeightsData(SkinWeightsData, object):
             if shape_utils.has_shape_of_type(obj, 'mesh'):
                 self._export_mesh_obj(obj, geo_path)
 
-            setting_lines.append("['skinNodeName', '{}']".format(tp.Dcc.node_short_name(skin_node)))
-            if tp.Dcc.attribute_exists(skin_node, 'blendWeights'):
+            setting_lines.append("['skinNodeName', '{}']".format(dcc.node_short_name(skin_node)))
+            if dcc.attribute_exists(skin_node, 'blendWeights'):
                 blend_weights = deform_utils.get_skin_blend_weights(skin_node)
                 setting_lines.append("['blendWeights', {}]".format(blend_weights))
-            if tp.Dcc.attribute_exists(skin_node, 'skinningMethod'):
-                skin_method = tp.Dcc.get_attribute_value(skin_node, 'skinningMethod')
+            if dcc.attribute_exists(skin_node, 'skinningMethod'):
+                skin_method = dcc.get_attribute_value(skin_node, 'skinningMethod')
                 setting_lines.append("['skinningMethod', {}]".format(skin_method))
 
             write_settings = fileio.FileWriter(settings_file)
@@ -665,7 +671,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
             ng_skin_file_name = os.path.join(geo_path, 'ngdata.json')
             ngst_api.export_json(obj, file=ng_skin_file_name)
 
-            maya.logger.info('Skin weights exported successfully: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
+            LOGGER.info('Skin weights exported successfully: {} > {} --> "{}"'.format(obj, skin_node, geo_path))
 
         data_to_save = OrderedDict()
         for obj, obj_filename in obj_dirs.items():
@@ -673,7 +679,7 @@ class NgSkinWeightsData(SkinWeightsData, object):
         with open(file_path, 'w') as fh:
             json.dump(data_to_save, fh)
 
-        maya.logger.info('Skin weights export operation completed successfully!')
+        LOGGER.info('Skin weights export operation completed successfully!')
 
         version = fileio.FileVersion(os.path.dirname(file_path))
         if version.has_versions():
@@ -683,21 +689,21 @@ class NgSkinWeightsData(SkinWeightsData, object):
         return True
 
     def _import_skin_weights(self, data_path, mesh):
-        if not tp.Dcc.object_exists(mesh) or not os.path.isdir(data_path):
+        if not dcc.node_exists(mesh) or not os.path.isdir(data_path):
             return False
 
         try:
-            if not tp.Dcc.is_plugin_loaded('ngSkinTools2'):
-                tp.Dcc.register_plugin('ngSkinTools2')
+            if not dcc.is_plugin_loaded('ngSkinTools2'):
+                dcc.load_plugin('ngSkinTools2')
             import ngSkinTools2
             from ngSkinTools2 import api as ngst_api
         except ImportError:
-            maya.logger.warning('NgSkinTools 2.0 is not installed. Impossible to import ngSkin data')
+            LOGGER.warning('NgSkinTools 2.0 is not installed. Impossible to import ngSkin data')
             return False
 
         ng_skin_data_path = path_utils.join_path(data_path, 'ngdata.json')
         if not path_utils.is_file(ng_skin_data_path):
-            maya.logger.warning(
+            LOGGER.warning(
                 'No Ng Skin Data file found: "{}", aborting import skin weights operation ...'.format(
                     ng_skin_data_path))
             return False
@@ -709,25 +715,25 @@ class NgSkinWeightsData(SkinWeightsData, object):
                 is_valid_mesh = True
                 break
         if not is_valid_mesh:
-            maya.logger.warning(
+            LOGGER.warning(
                 'Node "{}" is not a valid mesh node! Currently supported nodes include: {}'.format(mesh, shape_types))
             return False
 
-        maya.logger.info('Importing skin clusters {} --> "{}"'.format(mesh, data_path))
+        LOGGER.info('Importing skin clusters {} --> "{}"'.format(mesh, data_path))
 
         influence_dict = self._get_influences(data_path)
         if not influence_dict:
-            maya.logger.warning('No influences data found for: {}'.format(mesh))
+            LOGGER.warning('No influences data found for: {}'.format(mesh))
             return False
 
         influences = influence_dict.keys()
         if not influences:
-            maya.logger.warning('No influences found for: "{}"'.format(mesh))
+            LOGGER.warning('No influences found for: "{}"'.format(mesh))
             return False
         influences.sort()
-        maya.logger.debug('Influences found for {}: {}'.format(mesh, influences))
+        LOGGER.debug('Influences found for {}: {}'.format(mesh, influences))
 
-        short_name = tp.Dcc.node_short_name(mesh)
+        short_name = dcc.node_short_name(mesh)
         transfer_mesh = None
 
         if shape_utils.has_shape_of_type(mesh, 'mesh'):
@@ -738,24 +744,24 @@ class NgSkinWeightsData(SkinWeightsData, object):
                     transfer_mesh = mesh
                     mesh = orig_mesh
                 else:
-                    tp.Dcc.delete_object(orig_mesh)
+                    dcc.delete_node(orig_mesh)
 
         # Check if there are duplicated influences and also for the creation of influences that does not currently
         # in the scene
         add_joints = list()
         remove_entries = list()
         for influence in influences:
-            joints = tp.Dcc.list_nodes(influence, full_path=True)
+            joints = dcc.list_nodes(influence, full_path=True)
             if type(joints) == list and len(joints) > 1:
                 add_joints.append(joints[0])
                 conflicting_count = len(joints)
-                maya.logger.warning(
+                LOGGER.warning(
                     'Found {} joints with name {}. Using only the first one: {}'.format(
                         conflicting_count, influence, joints[0]))
                 remove_entries.append(influence)
                 influence = joints[0]
-            if not tp.Dcc.object_exists(influence):
-                tp.Dcc.clear_selection()
+            if not dcc.node_exists(influence):
+                dcc.clear_selection()
                 maya.cmds.joint(n=influence, p=influence_dict[influence]['position'])
         for entry in remove_entries:
             influences.remove(entry)
@@ -777,12 +783,12 @@ class NgSkinWeightsData(SkinWeightsData, object):
         # Create skin cluster and removes if it already exists
         skin_cluster = deform_utils.find_deformer_by_type(mesh, 'skinCluster')
         if skin_cluster:
-            tp.Dcc.delete_object(skin_cluster)
+            dcc.delete_node(skin_cluster)
 
         skin_node_name = settings_data.pop('skinNodeName', 'skin_{}'.format(short_name))
         skin_cluster = maya.cmds.skinCluster(
-            influences, mesh, tsb=True, n=tp.Dcc.find_unique_name(skin_node_name))[0]
-        tp.Dcc.set_attribute_value(skin_cluster, 'normalizeWeights', 0)
+            influences, mesh, tsb=True, n=dcc.find_unique_name(skin_node_name))[0]
+        dcc.set_attribute_value(skin_cluster, 'normalizeWeights', 0)
         deform_utils.set_skin_weights_to_zero(skin_cluster)
 
         # TODO: This Influence mapping configuration should be generated during export and imported here as JSON file
@@ -801,15 +807,15 @@ class NgSkinWeightsData(SkinWeightsData, object):
             if attr_name == 'blendWeights':
                 deform_utils.set_skin_blend_weights(skin_cluster, value)
             else:
-                if tp.Dcc.attribute_exists(skin_cluster, attr_name):
-                    tp.Dcc.set_attribute_value(skin_cluster, attr_name, value)
+                if dcc.attribute_exists(skin_cluster, attr_name):
+                    dcc.set_attribute_value(skin_cluster, attr_name, value)
 
         if transfer_mesh:
-            maya.logger.info('Import sking weights: mesh topology does not match. Trying to transfer topology ...')
+            LOGGER.info('Import sking weights: mesh topology does not match. Trying to transfer topology ...')
             deform_utils.skin_mesh_from_mesh(mesh, transfer_mesh)
-            tp.Dcc.delete_object(mesh)
+            dcc.delete_node(mesh)
 
-        maya.logger.info('Import skinCluster weights: {} from {}'.format(short_name, data_path))
+        LOGGER.info('Import skinCluster weights: {} from {}'.format(short_name, data_path))
 
         return True
 

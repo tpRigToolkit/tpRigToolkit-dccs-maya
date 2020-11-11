@@ -5,7 +5,7 @@
 Module that contains god rig implementation for metarig in Maya
 """
 
-from tpRigToolkit.dccs.maya.metarig.core import module, mixin
+from tpRigToolkit.dccs.maya.metarig.core import module
 
 
 class GodRig(module.RigModule):

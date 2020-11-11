@@ -5,11 +5,14 @@
 Module that contains ground rig implementation for metarig in Maya
 """
 
-import tpDcc as tp
+import logging
 
-import tpRigToolkit
+from tpDcc import dcc
+
 from tpRigToolkit.dccs.maya.metarig.core import module, mixin
 from tpRigToolkit.dccs.maya.metarig.components import joint
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class GroundRig(module.RigModule, mixin.JointMixin):
@@ -29,7 +32,7 @@ class GroundRig(module.RigModule, mixin.JointMixin):
 
         joints = self.get_joints()
         if not joints:
-            tpRigToolkit.logger.warning('Impossible to create ground rig because no joints defined!')
+            logger.warning('Impossible to create ground rig because no joints defined!')
             return False
 
         ground_joint = joints[0]
@@ -71,9 +74,9 @@ class GroundRig(module.RigModule, mixin.JointMixin):
         # TODO: create sub controls functionality is enabled
         joints = joint_component.get_joints()
         if joints and joint_component.attach_joints:
-            tp.Dcc.create_parent_constraint(joints[0].meta_node, main_ctrl.meta_node)
+            dcc.create_parent_constraint(joints[0].meta_node, main_ctrl.meta_node)
             if self.scalable:
-                tp.Dcc.create_scale_constraint(joints[0].meta_node, main_ctrl.meta_node)
+                dcc.create_scale_constraint(joints[0].meta_node, main_ctrl.meta_node)
 
         self.controls_group.set_parent(self.character.controls_group)
 

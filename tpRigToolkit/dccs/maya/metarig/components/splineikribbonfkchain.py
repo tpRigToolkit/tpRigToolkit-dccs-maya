@@ -7,7 +7,7 @@ Module that contains Spline Ik & Ribbon Fk Chain implementation for metarig in M
 Custom Fk chain implementation intended to be used along a Spline Ik or Nurbs Ribbon setup
 """
 
-import tpDcc as tp
+from tpDcc import dcc
 from tpDcc.dccs.maya.core import transform as xform_utils
 
 from tpRigToolkit.dccs.maya.metarig.components import fkchain
@@ -67,9 +67,9 @@ class SplineIkRibbonFkChainComponent(fkchain.FkChainComponent, object):
 
         if self.create_sub_controls:
             sub_ctrl = control.get_sub_controls()[-1]
-            tp.Dcc.create_parent_constraint(cls_cmp[increment], sub_ctrl.meta_node, maintain_offset=True)
+            dcc.create_parent_constraint(cls_cmp[increment], sub_ctrl.meta_node, maintain_offset=True)
         else:
-            tp.Dcc.create_parent_constraint(cls_cmp[increment], control.meta_node, maintain_offset=True)
+            dcc.create_parent_constraint(cls_cmp[increment], control.meta_node, maintain_offset=True)
 
     def _setup_first_control(self, control, current_transform, current_increment):
         """

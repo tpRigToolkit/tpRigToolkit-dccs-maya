@@ -7,13 +7,17 @@ Module that contains mixin classes to compose functionality in different compone
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
+import logging
+
+from tpDcc import dcc
 from tpDcc.libs.python import python
 from tpDcc.dccs.maya.core import attribute as attr_utils, node as node_utils
 from tpDcc.dccs.maya.meta import metaobject, metautils
 
-import tpRigToolkit
+from tpRigToolkit.managers import names
 from tpRigToolkit.dccs.maya.metarig.core import control
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class CoreMixin(object):
@@ -58,7 +62,7 @@ class CoreMixin(object):
         :return:
         """
 
-        if self.has_attr('setup_group') and tp.Dcc.object_exists(self.setup_group.meta_node):
+        if self.has_attr('setup_group') and dcc.node_exists(self.setup_group.meta_node):
             return self.setup_group
         else:
             parent = self.get_parent()
@@ -180,7 +184,7 @@ class CoreMixin(object):
         """
 
         if not self.has_attr('setup_group'):
-            tpRigToolkit.loger.warning('Setup group does not exists!')
+            LOGGER.warning('Setup group does not exists!')
             return
 
         if self.setup_group.is_valid_mobject():
@@ -191,10 +195,10 @@ class CoreMixin(object):
                 return
 
             if node_utils.is_empty(self.setup_group.meta_node):
-                tpRigToolkit.logger.warning('Setup Group is not empty. Skipping deletion ...')
+                LOGGER.warning('Setup Group is not empty. Skipping deletion ...')
 
         if not self.setup_group.is_valid():
-            tpRigToolkit.logger.warning('Setup Group does not exists! Skipping deletion ...')
+            LOGGER.warning('Setup Group does not exists! Skipping deletion ...')
 
     def delete_control(self):
         """
@@ -202,7 +206,7 @@ class CoreMixin(object):
         """
 
         if not self.has_attr('controls_group'):
-            tpRigToolkit.loger.warning('Controls group does not exists!')
+            LOGGER.warning('Controls group does not exists!')
             return
 
         if self.controls_group.is_valid_mobject():
@@ -213,10 +217,10 @@ class CoreMixin(object):
                 return
 
             if node_utils.is_empty(self.controls_group.meta_node):
-                tpRigToolkit.logger.warning('controls_group Group is not empty. Skipping deletion ...')
+                LOGGER.warning('controls_group Group is not empty. Skipping deletion ...')
 
         if not self.controls_group.is_valid():
-            tpRigToolkit.logger.warning('Controls Group does not exists! Skipping deletion ...')
+            LOGGER.warning('Controls Group does not exists! Skipping deletion ...')
 
     def connect_core_attributes(self, component):
         """
@@ -254,8 +258,7 @@ class CoreMixin(object):
         naming_file = self.naming_file if self.has_attr('naming_file') else None
         naming_rule = self.naming_rule if self.has_attr('naming_rule') else None
 
-        return tpRigToolkit.NamesMgr().solve_name(
-            side=self.side, naming_file=naming_file, rule_name=naming_rule, *args, **kwargs)
+        return names.solve_name(side=self.side, naming_file=naming_file, rule_name=naming_rule, *args, **kwargs)
 
     def _prepare_attribute(self, attribute_name):
         """
@@ -389,7 +392,7 @@ class ControlMixin(object):
         :return:
         """
 
-        if self.has_attr('controls_group') and tp.Dcc.object_exists(self.controls_group.meta_node):
+        if self.has_attr('controls_group') and dcc.node_exists(self.controls_group.meta_node):
             return self.controls_group
         else:
             parent = self.get_parent()
@@ -621,7 +624,7 @@ class ControlMixin(object):
         if 'control_name' in control_data:
             control_type = control_data['control_name']
 
-        node_base_name = tp.Dcc.node_short_name(self.base_name)
+        node_base_name = dcc.node_short_name(self.base_name)
         node_type = 'subControl' if sub else 'control'
         new_ctrl = control.RigControl(name=self._get_name(node_base_name, name, node_type=node_type, *args, **kwargs))
         new_ctrl.set_name(name)
@@ -682,11 +685,11 @@ class ControlMixin(object):
         # Control attribute value will handle the drawingOverrides color of the shape
         shapes = new_ctrl.get_shapes()
         for shp in shapes:
-            tp.Dcc.connect_attribute(
+            dcc.connect_attribute(
                 new_ctrl.meta_node, 'color.colorX', shp, 'drawOverride.overrideColorRGB.overrideColorR')
-            tp.Dcc.connect_attribute(
+            dcc.connect_attribute(
                 new_ctrl.meta_node, 'color.colorY', shp, 'drawOverride.overrideColorRGB.overrideColorG')
-            tp.Dcc.connect_attribute(
+            dcc.connect_attribute(
                 new_ctrl.meta_node, 'color.colorZ', shp, 'drawOverride.overrideColorRGB.overrideColorB')
 
         if not self.scalable:
@@ -885,11 +888,11 @@ class JointMixin(object):
         """
 
         if not jnt:
-            tpRigToolkit.logger.warning('No joint to check')
+            LOGGER.warning('No joint to check')
             return False
 
         if not jnt or not jnt.node_type() == 'joint':
-            tpRigToolkit.logger.warning('Joint: "{}" is not valid!'.format(jnt))
+            LOGGER.warning('Joint: "{}" is not valid!'.format(jnt))
             return False
 
         return True

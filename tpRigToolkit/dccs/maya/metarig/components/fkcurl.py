@@ -7,7 +7,6 @@ Module that contains rig component to add curl functionality to already created 
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
 from tpDcc.libs.python import python
 from tpDcc.dccs.maya.core import attribute as attr_utils
 
@@ -42,7 +41,7 @@ class FkCurlNoScale(component.RigComponent, object):
         title = 'CURL'
         if self.curl_attribute_title:
             title = 'CURL_{}'.format(self.curl_attribute_title)
-        if not tp.Dcc.object_exists('{}.{}'.format(self.curl_control.meta_node, title)):
+        if not dcc.node_exists('{}.{}'.format(self.curl_control.meta_node, title)):
             title = attr_utils.EnumAttribute(title)
             title.create(self.curl_control.meta_node)
 

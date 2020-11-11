@@ -7,12 +7,15 @@ Module that contains rig component to handle joint attachments
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
+import logging
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.core import joint as joint_utils, rig as rig_utils
 from tpDcc.dccs.maya.meta import metanode
 
-import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import component
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class AttachJointsComponent(component.RigComponent, object):
@@ -132,7 +135,7 @@ class AttachJointsComponent(component.RigComponent, object):
         """
 
         if not self.attach_joints:
-            tpRigToolkit.logger.warning('Attach joints skipped ...')
+            LOGGER.warning('Attach joints skipped ...')
             return
 
         source_joints = self.message_list_get('source_joints', as_meta=False)
@@ -154,10 +157,10 @@ class AttachJointsComponent(component.RigComponent, object):
         remap_nodes = attach_joints.remap_nodes
         for remap_node in remap_nodes:
             remap_split = remap_node.split('_')[:-1]
-            tp.Dcc.rename_node(
+            dcc.rename_node(
                 remap_node, self._get_name(self.name, '_'.join(remap_split), node_type='remapValue'))
 
-        if tp.Dcc.attribute_exists(target_joints[0], self.switch_attribute_name):
+        if dcc.attribute_exists(target_joints[0], self.switch_attribute_name):
             switch = rig_utils.RigSwitch(target_joints[0])
             weight_count = switch.get_weight_count()
             if weight_count > 0:
@@ -168,7 +171,7 @@ class AttachJointsComponent(component.RigComponent, object):
                 switch.create()
                 switch_conditions = switch.conditions
                 for _, condition in switch_conditions.items():
-                    tp.Dcc.rename_node(condition, self._get_name(self.name, 'switch', node_type='condition'))
+                    dcc.rename_node(condition, self._get_name(self.name, 'switch', node_type='condition'))
 
     def detach(self):
         raise NotImplementedError('Detach functionality is not implemented yet!')
@@ -182,7 +185,7 @@ class AttachJointsComponent(component.RigComponent, object):
         """
 
         if len(source_joints) != len(target_joints):
-            tpRigToolkit.logger.warning('Source and Target joints do not match their length!')
+            LOGGER.warning('Source and Target joints do not match their length!')
             return
 
         # Connect source joints

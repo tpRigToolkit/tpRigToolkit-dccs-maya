@@ -12,8 +12,10 @@ Limitations:
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import maya.cmds
+import maya.mel
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.meta import metanode
 from tpDcc.dccs.maya.core import curve as curve_utils, ik as ik_utils, transform as xform_utils, skin as skin_utils
 
@@ -273,9 +275,9 @@ class SplineIkSkin(buffer.BufferComponent, object):
         orig_curve_name = self._get_name(self.name, 'splineCurve', node_type='origCurve')
         curve_name = self._get_name(self.name, 'splineCurve', node_type='curve')
         orig_crv = curve_utils.transforms_to_curve(transforms=joints, spans=self.span_count, name=orig_curve_name)
-        tp.Dcc.set_attribute_value(orig_crv, 'inheritsTransform', False)
-        new_crv = tp.Dcc.duplicate_object(orig_crv)[0]
-        tp.Dcc.rebuild_curve(
+        dcc.set_attribute_value(orig_crv, 'inheritsTransform', False)
+        new_crv = dcc.duplicate_node(orig_crv)[0]
+        dcc.rebuild_curve(
             new_crv, replace_original=True, rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False,
             keep_end_points=True, keep_tangents=False, spans=span_count, degree=3)
 
@@ -345,10 +347,10 @@ class SplineIkSkin(buffer.BufferComponent, object):
 
         joints = self.get_buffer_joints(as_meta=False) or self.get_joints(as_meta=False)
 
-        children = tp.Dcc.list_relatives(joints[-1], full_path=False)
+        children = dcc.list_relatives(joints[-1], full_path=False)
         if children:
             for child in children:
-                tp.Dcc.set_parent_to_world(child)
+                dcc.set_parent_to_world(child)
 
         start_joint = joints[0]
         end_joint = joints[-1]
@@ -363,11 +365,11 @@ class SplineIkSkin(buffer.BufferComponent, object):
         self.set_ik_handle(handle)
 
         if self.closest_y:
-            tp.Dcc.set_attribute_value(handle.meta_node, 'dWorldUpAxis', 2)
+            dcc.set_attribute_value(handle.meta_node, 'dWorldUpAxis', 2)
 
         if children:
             for child in children:
-                tp.Dcc.set_parent(child, joints[-1])
+                dcc.set_parent(child, joints[-1])
 
         handle.set_parent(self.setup_group)
 
@@ -395,30 +397,30 @@ class SplineIkSkin(buffer.BufferComponent, object):
 
             # TODO: If we change forward axis different to X in our original chain this will not work
             # TODO: The same if we change the up axis (by default its Y)
-            tp.Dcc.set_attribute_value(ik_handle, 'dTwistControlEnable', True)
-            tp.Dcc.set_attribute_value(ik_handle, 'dWorldUpType', 4)    # Object Rotation Up (Start/End)
-            tp.Dcc.connect_attribute(start_marker, 'worldMatrix', ik_handle, 'dWorldUpMatrix')
-            tp.Dcc.connect_attribute(end_marker, 'worldMatrix', ik_handle, 'dWo rldUpMatrixEnd')
+            dcc.set_attribute_value(ik_handle, 'dTwistControlEnable', True)
+            dcc.set_attribute_value(ik_handle, 'dWorldUpType', 4)    # Object Rotation Up (Start/End)
+            dcc.connect_attribute(start_marker, 'worldMatrix', ik_handle, 'dWorldUpMatrix')
+            dcc.connect_attribute(end_marker, 'worldMatrix', ik_handle, 'dWo rldUpMatrixEnd')
 
     def _wire_hires(self, crv):
         if self.span_count == self.control_count:
             self.ik_curve = crv
         else:
             if self.wire_hires:
-                self.ik_curve = tp.Dcc.duplicate_object(self.orig_curve.meta_node)[0]
-                tp.Dcc.set_attribute_value(self.ik_curve.meta_node, 'inheritsTransform', True)
-                self.ik_curve = tp.Dcc.rename_node(
+                self.ik_curve = dcc.duplicate_node(self.orig_curve.meta_node)[0]
+                dcc.set_attribute_value(self.ik_curve.meta_node, 'inheritsTransform', True)
+                self.ik_curve = dcc.rename_node(
                     self.ik_curve.meta_node, self._get_name(self.name, node_type='curve'))
-                tp.Dcc.rebuild_curve(
+                dcc.rebuild_curve(
                     self.ik_curve.meta_node, construction_history=False, spans=self.span_count, replace_original=True,
                     rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
                     keep_tangents=False, degree=3)
                 wire_name = self._get_name(self.name, node_type='wire')
                 wire, base_crv = maya.cmds.wire(
                     self.ik_curve.meta_node, w=crv, dds=[(0, 1000000)], gw=False, n=wire_name)
-                tp.Dcc.set_attribute_value('{}BaseWire'.format(base_crv), 'inheritsTransform', True)
+                dcc.set_attribute_value('{}BaseWire'.format(base_crv), 'inheritsTransform', True)
             else:
-                tp.Dcc.rebuild_curve(
+                dcc.rebuild_curve(
                     crv.meta_node, construction_history=True, spans=self.span_count, replace_original=True,
                     rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
                     keep_tangents=False, degree=3)

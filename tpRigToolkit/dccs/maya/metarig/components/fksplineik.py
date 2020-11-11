@@ -7,9 +7,10 @@ Module that contains rig component to create FK joint chains controlled by a Spl
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
-from tpDcc.dccs.maya.core import transform as xform_utils, name as name_utils, attribute as attr_utils
+import maya.cmds
+
+from tpDcc import dcc
+from tpDcc.dccs.maya.core import transform as xform_utils, name as name_utils
 
 from tpRigToolkit.dccs.maya.metarig.components import fkchain, splineikcluster
 
@@ -248,9 +249,9 @@ class FkSplineIkComponent(fkchain.FkChainComponent, object):
         maya.cmds.delete(maya.cmds.listRelatives(clusters[0], ad=True, type='constraint'))
         maya.cmds.delete(maya.cmds.listRelatives(clusters[-1], ad=True, type='constraint'))
 
-        aim1 = tp.Dcc.create_empty_group(
+        aim1 = dcc.create_empty_group(
             name=name_utils.find_unique_name('{}'.format(self._get_name('aimCluster', type='group'))))
-        aim2 = tp.Dcc.create_empty_group(
+        aim2 = dcc.create_empty_group(
             name=name_utils.find_unique_name('{}'.format(self._get_name('aimCluster', type='group'))))
 
         xform_aim1 = xform_utils.create_buffer_group(aim1)
@@ -259,15 +260,15 @@ class FkSplineIkComponent(fkchain.FkChainComponent, object):
         xform_utils.MatchTransform(sub_controls[0], xform_aim1).translation()
         xform_utils.MatchTransform(sub_controls[-1], xform_aim1).translation()
 
-        tp.Dcc.create_parent_constraint(xform_aim1, sub_controls[0], maintain_offset=True)
-        tp.Dcc.create_parent_constraint(xform_aim1, sub_controls[-1], maintain_offset=True)
+        dcc.create_parent_constraint(xform_aim1, sub_controls[0], maintain_offset=True)
+        dcc.create_parent_constraint(xform_aim1, sub_controls[-1], maintain_offset=True)
 
         mid_control_id = len(sub_controls) / 2
 
         maya.cmds.aimConstraint(sub_controls[mid_control_id], aim1, wuo=controls[0], wut='objectrotation')
         maya.cmds.aimConstraint(sub_controls[mid_control_id], aim2, wuo=controls[-1], wut='objectrotation')
 
-        tp.Dcc.set_parent(clusters[0], aim1)
-        tp.Dcc.set_parent(clusters[-1], aim2)
+        dcc.set_parent(clusters[0], aim1)
+        dcc.set_parent(clusters[-1], aim2)
 
-        tp.Dcc.set_parent(xform_aim1, xform_aim2, self.setup_group.meta_node)
+        dcc.set_parent(xform_aim1, xform_aim2, self.setup_group.meta_node)

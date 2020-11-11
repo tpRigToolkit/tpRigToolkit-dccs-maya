@@ -9,14 +9,18 @@ This Spline Ik setup uses clusters
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import logging
+
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.meta import metanode
 from tpDcc.dccs.maya.core import curve as curve_utils, ik as ik_utils, transform as xform_utils
-from tpDcc.dccs.maya.core import deformer as deform_utils, attribute as attr_utils
+from tpDcc.dccs.maya.core import cluster as cluster_utils, attribute as attr_utils
 
-import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.components import attach, joint
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class SplineIkCluster(joint.JointComponent, object):
@@ -296,9 +300,9 @@ class SplineIkCluster(joint.JointComponent, object):
             spans=self.span_count,
             name=orig_curve_name
         )
-        tp.Dcc.set_attribute_value(orig_crv, 'inheritsTransform', False)
-        new_crv = tp.Dcc.duplicate_object(orig_crv)[0]
-        tp.Dcc.rebuild_curve(
+        dcc.set_attribute_value(orig_crv, 'inheritsTransform', False)
+        new_crv = dcc.duplicate_node(orig_crv)[0]
+        dcc.rebuild_curve(
             new_crv, replace_original=True, rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False,
             keep_end_points=True, keep_tangents=False, spans=span_count, degree=3)
 
@@ -324,7 +328,7 @@ class SplineIkCluster(joint.JointComponent, object):
         cluster_name = self._get_name(self.name, 'splineIkCluster', node_type='cluster')
         last_pivot_end = True if self.last_pivot_top_value else False
 
-        cluster_curve = deform_utils.ClusterCurve(geometry=self.curve.meta_node, name=cluster_name)
+        cluster_curve = cluster_utils.ClusterCurve(geometry=self.curve.meta_node, name=cluster_name)
         cluster_curve.set_first_cluster_pivot_at_start(True)
         cluster_curve.set_last_cluster_pivot_at_end(last_pivot_end)
         cluster_curve.set_join_ends(True)
@@ -353,7 +357,7 @@ class SplineIkCluster(joint.JointComponent, object):
     def _setup_stretchy(self):
         rig_module = self.get_rig_module()
         if not rig_module:
-            tpRigToolkit.logger.warning('RigComponent {} is not connected to a RigModule!'.format(self.base_name))
+            LOGGER.warning('RigComponent {} is not connected to a RigModule!'.format(self.base_name))
             return
 
         attach = self.get_attach_component()
@@ -382,10 +386,10 @@ class SplineIkCluster(joint.JointComponent, object):
 
         joints = self.get_joints(as_meta=False)
 
-        children = tp.Dcc.list_relatives(joints[-1], full_path=False)
+        children = dcc.list_relatives(joints[-1], full_path=False)
         if children:
             for child in children:
-                tp.Dcc.set_parent_to_world(child)
+                dcc.set_parent_to_world(child)
 
         start_joint = joints[0]
         end_joint = joints[-1]
@@ -399,21 +403,21 @@ class SplineIkCluster(joint.JointComponent, object):
         self.set_ik_handle(handle)
 
         if self.closest_y:
-            tp.Dcc.set_attribute_value(handle, 'dWorldUpAxis', 2)
+            dcc.set_attribute_value(handle, 'dWorldUpAxis', 2)
 
         if children:
             for child in children:
-                tp.Dcc.set_parent(child, joints[-1])
+                dcc.set_parent(child, joints[-1])
 
-        tp.Dcc.set_parent(handle, self.setup_group.meta_node)
+        dcc.set_parent(handle, self.setup_group.meta_node)
 
         if self.advanced_twist:
-            start_locator = tp.Dcc.create_locator(name=self._get_name(self.name, 'twistStart', node_type='locator'))
-            end_locator = tp.Dcc.create_locator(name=self._get_name(self.name, 'twistEnd', node_type='locator'))
+            start_locator = dcc.create_locator(name=self._get_name(self.name, 'twistStart', node_type='locator'))
+            end_locator = dcc.create_locator(name=self._get_name(self.name, 'twistEnd', node_type='locator'))
             self.set_start_locator(start_locator)
             self.set_end_locator(end_locator)
-            tp.Dcc.hide_node(start_locator)
-            tp.Dcc.hide_node(end_locator)
+            dcc.hide_node(start_locator)
+            dcc.hide_node(end_locator)
 
             match = xform_utils.MatchTransform(joints[0], start_locator)
             match.translation_rotation()
@@ -423,10 +427,10 @@ class SplineIkCluster(joint.JointComponent, object):
             # TODO: If we change forward axis different to X in our original chain this will not work
             # TODO: The same if we change the up axis (by default its Y)
             ik_handle = self.ik_handle[0]
-            tp.Dcc.set_attribute_value(ik_handle, 'dTwistControlEnable', True)
-            tp.Dcc.set_attribute_value(ik_handle, 'dWorldUpType', 4)    # Object Rotation Up (Start/End)
-            tp.Dcc.connect_attribute(start_locator, 'worldMatrix', ik_handle, 'dWorldUpMatrix')
-            tp.Dcc.connect_attribute(end_locator, 'worldMatrix', ik_handle, 'dWorldUpMatrixEnd')
+            dcc.set_attribute_value(ik_handle, 'dTwistControlEnable', True)
+            dcc.set_attribute_value(ik_handle, 'dWorldUpType', 4)    # Object Rotation Up (Start/End)
+            dcc.connect_attribute(start_locator, 'worldMatrix', ik_handle, 'dWorldUpMatrix')
+            dcc.connect_attribute(end_locator, 'worldMatrix', ik_handle, 'dWorldUpMatrixEnd')
 
     def _wire_hires(self, crv):
         if self.span_count == self.control_count:
@@ -434,20 +438,20 @@ class SplineIkCluster(joint.JointComponent, object):
             return
 
         if self.wire_hires:
-            self.ik_curve = tp.Dcc.duplicate_object(self.orig_curve.meta_node)[0]
-            tp.Dcc.set_attribute_value(self.ik_curve.meta_node, 'inheritsTransform', True)
-            self.ik_curve = tp.Dcc.rename_node(
+            self.ik_curve = dcc.duplicate_node(self.orig_curve.meta_node)[0]
+            dcc.set_attribute_value(self.ik_curve.meta_node, 'inheritsTransform', True)
+            self.ik_curve = dcc.rename_node(
                 self.ik_curve.meta_node, self._get_name(self.name, node_type='curve'))
-            tp.Dcc.rebuild_curve(
+            dcc.rebuild_curve(
                 self.ik_curve.meta_node, construction_history=False, spans=self.span_count, replace_original=True,
                 rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
                 keep_tangents=False, degree=3)
             wire_name = self._get_name(self.name, node_type='wire')
             wire, base_crv = maya.cmds.wire(
                 self.ik_curve.meta_node, w=crv, dds=[(0, 1000000)], gw=False, n=wire_name)
-            tp.Dcc.set_attribute_value('{}BaseWire'.format(base_crv), 'inheritsTransform', True)
+            dcc.set_attribute_value('{}BaseWire'.format(base_crv), 'inheritsTransform', True)
         else:
-            tp.Dcc.rebuild_curve(
+            dcc.rebuild_curve(
                 crv.meta_node, construction_history=True, spans=self.span_count, replace_original=True,
                 rebuild_type=0, end_knots=1, keep_range=False, keep_control_points=False, keep_end_points=True,
                 keep_tangents=False, degree=3)

@@ -7,12 +7,17 @@ Module that contains Muscle Spline metarig component implementation for Maya
 
 from __future__ import print_function, division, absolute_import
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
+import logging
+
+import maya.cmds
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.meta import metanode
 
 from tpRigToolkit.dccs.maya.core import musclespline
 from tpRigToolkit.dccs.maya.metarig.core import component, mixin
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.ControlMixin):
@@ -58,7 +63,7 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
             spline_controls_group.set_parent(controls_group)
         else:
             self.controls_group = spline_controls_group
-        # tp.Dcc.set_attribute_value(muscle_spline.drivens_group, 'visibility', False)
+        # dcc.set_attribute_value(muscle_spline.drivens_group, 'visibility', False)
         drivens_group = metanode.validate_obj_arg(muscle_spline.drivens_group, 'MetaObject', update_class=True)
         setup_group = self.get_setup_group()
         if setup_group:
@@ -85,11 +90,11 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
 
         source_transforms = self.message_list_get('source_transforms', as_meta=False) or list()
         if len(source_transforms) != len(muscle_spline.root_groups):
-            maya.logger.warning(
+            LOGGER.warning(
                 'To automatically connect Muscle Spline controls to source transforms the number of transforms to '
                 'attach should match. Source transfroms ({}); Root Groups: ({})'.format(
                     len(source_transforms), len(muscle_spline.root_groups)))
-            maya.logger.info('Only start and end controls will be attached ...')
+            LOGGER.info('Only start and end controls will be attached ...')
             self._connect_start_end_controls(muscle_spline)
         else:
             self._connect_all_controls(muscle_spline)
@@ -113,8 +118,8 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
             return auto_groups
 
         for control in controls:
-            auto_group = tp.Dcc.get_message_input(control.meta_node, 'auto')
-            if not auto_group or not tp.Dcc.object_exists(auto_group):
+            auto_group = dcc.get_message_input(control.meta_node, 'auto')
+            if not auto_group or not dcc.node_exists(auto_group):
                 continue
             if as_meta:
                 auto_groups.append(metanode.validate_obj_arg(auto_group, 'MetaObject', update_class=True))
@@ -136,8 +141,8 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
             return root_groups
 
         for control in controls:
-            root_group = tp.Dcc.get_message_input(control.meta_node, 'root')
-            if not root_group or not tp.Dcc.object_exists(root_group):
+            root_group = dcc.get_message_input(control.meta_node, 'root')
+            if not root_group or not dcc.node_exists(root_group):
                 continue
             if as_meta:
                 root_groups.append(metanode.validate_obj_arg(root_group, 'MetaObject', update_class=True))
@@ -228,11 +233,11 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
                 [muscle_spline.root_groups[0], muscle_spline.root_groups[-1]],
                 [muscle_spline.drivens[0], muscle_spline.drivens[-1]]):
 
-            tp.Dcc.create_parent_constraint(root_group, source_transform, maintain_offset=False)
-            tp.Dcc.delete_constraints(root_group, constraint_type='parentConstraint')
-            tp.Dcc.create_point_constraint(root_group, source_transform, maintain_offset=False)
-            ori_cns = tp.Dcc.create_orient_constraint(root_group, source_transform, maintain_offset=True)
-            tp.Dcc.set_attribute_value(ori_cns, 'interpType', 2)        # Shortest
+            dcc.create_parent_constraint(root_group, source_transform, maintain_offset=False)
+            dcc.delete_constraints(root_group, constraint_type='parentConstraint')
+            dcc.create_point_constraint(root_group, source_transform, maintain_offset=False)
+            ori_cns = dcc.create_orient_constraint(root_group, source_transform, maintain_offset=True)
+            dcc.set_attribute_value(ori_cns, 'interpType', 2)        # Shortest
 
         # Disable jiggle attributes in muscle spline controls
         for ctrl in muscle_spline.controls:
@@ -243,7 +248,7 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         # TODO: In a future this will be implemented inside core muscleSpline, if that's the case
         # TODO: this code won't be necessary anymore.
         for control, driven in zip(spline_controls, muscle_spline.drivens):
-            tp.Dcc.create_scale_constraint(driven, control, maintain_offset=False)
+            dcc.create_scale_constraint(driven, control, maintain_offset=False)
 
     def _connect_all_controls(self, muscle_spline):
         source_transforms = self.message_list_get('source_transforms', as_meta=False) or list()
@@ -251,11 +256,11 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
 
         for source_transform, root_group, driven in zip(
                 source_transforms, muscle_spline.root_groups, muscle_spline.drivens):
-            tp.Dcc.create_parent_constraint(root_group, source_transform, maintain_offset=False)
-            tp.Dcc.delete_constraints(root_group, constraint_type='parentConstraint')
-            tp.Dcc.create_point_constraint(root_group, source_transform, maintain_offset=False)
-            ori_cns = tp.Dcc.create_orient_constraint(root_group, source_transform, maintain_offset=True)
-            tp.Dcc.set_attribute_value(ori_cns, 'interpType', 2)        # Shortest
+            dcc.create_parent_constraint(root_group, source_transform, maintain_offset=False)
+            dcc.delete_constraints(root_group, constraint_type='parentConstraint')
+            dcc.create_point_constraint(root_group, source_transform, maintain_offset=False)
+            ori_cns = dcc.create_orient_constraint(root_group, source_transform, maintain_offset=True)
+            dcc.set_attribute_value(ori_cns, 'interpType', 2)        # Shortest
 
         # Disable jiggle attributes in muscle spline controls
         for ctrl in muscle_spline.controls:
@@ -266,7 +271,7 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         # TODO: In a future this will be implemented inside core muscleSpline, if that's the case
         # TODO: this code won't be necessary anymore.
         for control, driven in zip(spline_controls, muscle_spline.drivens):
-            tp.Dcc.create_scale_constraint(driven, control, maintain_offset=False)
+            dcc.create_scale_constraint(driven, control, maintain_offset=False)
 
     def _create_attributes(self):
         if not self.create_bendy_controls_visibility_attribute or not self.attributes_control:
@@ -276,15 +281,15 @@ class MuscleSplineComponent(component.RigComponent, mixin.JointMixin, mixin.Cont
         if not controls_group:
             return False
 
-        tp.Dcc.add_title_attribute(self.attributes_control.meta_node, 'BENDY_CONTROLS')
+        dcc.add_title_attribute(self.attributes_control.meta_node, 'BENDY_CONTROLS')
 
         bendy_attr_name = 'bendy_visibility'
-        if not tp.Dcc.attribute_exists(self.attributes_control.meta_node, bendy_attr_name):
-            tp.Dcc.add_integer_attribute(
+        if not dcc.attribute_exists(self.attributes_control.meta_node, bendy_attr_name):
+            dcc.add_integer_attribute(
                 self.attributes_control.meta_node, bendy_attr_name,
                 default_value=0, min_value=0, max_value=1, keyable=False)
 
-        tp.Dcc.connect_attribute(
+        dcc.connect_attribute(
             self.attributes_control.meta_node, bendy_attr_name, controls_group.meta_node, 'visibility')
 
         return True

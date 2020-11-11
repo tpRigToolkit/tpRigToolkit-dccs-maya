@@ -5,15 +5,19 @@
 Module that contains rig control implementation for Maya
 """
 
-import os
+import logging
 
-import tpDcc as tp
-import tpDcc.dccs.maya as maya
-from tpDcc.dccs.maya.core import decorators, filtertypes, shape as shape_utils, node as node_utils
+import maya.cmds
+
+from tpDcc import dcc
+from tpDcc.libs.python import python
+from tpDcc.dccs.maya.core import decorators, shape as shape_utils, node as node_utils
 from tpDcc.dccs.maya.core import curve as curve_utils, name as name_utils, transform as transform_utils
 from tpDcc.dccs.maya.core import attribute as attr_utils, color as color_utils
 
 from tpRigToolkit.libs.controlrig.core import controllib
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class RigControl(object):
@@ -21,17 +25,17 @@ class RigControl(object):
     Creates a curve based control
     """
 
-    def __init__(self, name, tag=True, curve_type=None, controls_file=None):
+    def __init__(self, name, tag=True, curve_type=None, controls_path=None):
         self._control = name
         self._curve_type = curve_type
-        self._controls_file = controls_file
+        self._controls_path = controls_path
 
         if not maya.cmds.objExists(self._control):
             self._create(tag)
 
-        self._shapes = self._get_shapes()
+        self._shapes = shape_utils.get_shapes(self._control)
         if not self._shapes:
-            maya.logger.warning('{} has no shapes'.format(self._control))
+            LOGGER.warning('{} has no shapes'.format(self._control))
 
     def get(self):
         """
@@ -40,6 +44,21 @@ class RigControl(object):
         """
 
         return self._control
+
+    def get_top(self):
+        """
+        Returns top control (taking into account root and auto buffer groups)
+        :return: str
+        """
+
+        root_group = self.get_buffer_group('root')
+        if root_group:
+            return root_group
+        auto_group = self.get_buffer_group('auto')
+        if auto_group:
+            return auto_group
+
+        return self.get()
 
     def get_rgb_color(self, linear=True):
         """
@@ -66,7 +85,7 @@ class RigControl(object):
         Force the update of the internal control shapes cache
         """
 
-        self._shapes = self._get_shapes()
+        self._shapes = shape_utils.get_shapes(self._control)
 
     def translate_shape(self, x, y, z):
         """
@@ -210,13 +229,21 @@ class RigControl(object):
 
         return attr_utils.hide_keyable_attributes(self.get())
 
-    def create_buffer_group(self):
+    def create_root_group(self, name=None):
         """
         Creates a buffer group above the control
         :return: str
         """
 
-        return transform_utils.create_buffer_group(self.get())
+        return transform_utils.create_buffer_group(self.get(), buffer_name=name, suffix='root')
+
+    def create_auto_group(self, name=None):
+        """
+        Creates a buffer group above the control
+        :return: str
+        """
+
+        return transform_utils.create_buffer_group(self.get(), buffer_name=name, suffix='auto')
 
     def set_controls_file(self, controls_file):
         """
@@ -271,39 +298,70 @@ class RigControl(object):
 
         return maya.cmds.setAttr('{}.rotateOrder'.format(self._control, value))
 
+    def delete_shapes(self):
+        """
+        Delete all shapes beneath the control
+        """
+
+        shapes = shape_utils.get_shapes(self.get())
+        maya.cmds.delete(shapes)
+
     @decorators.undo_chunk
-    def set_curve_type(self, type_name=None):
+    def set_shape(self, shapes):
+        self.delete_shapes()
+        shapes = python.force_list(shapes)
+        if not shapes:
+            return
+        valid_shapes = list()
+        for shape in shapes:
+            if not shape_utils.is_shape(shape):
+                shapes = dcc.list_shapes(shape) or list()
+                valid_shapes.extend(shapes)
+            else:
+                valid_shapes.append(shape)
+        valid_shapes = list(set(valid_shapes))
+        if not valid_shapes:
+            return
+
+        for shape in valid_shapes:
+            maya.cmds.parent(shape, self.get(), add=True, shape=True)
+
+        self.update_shapes()
+
+    @decorators.undo_chunk
+    def set_curve_type(self, type_name=None, keep_color=True, **kwargs):
         """
         Updates the curves of the control with the given control type
         :param type_name: str
+        :param keep_color: bool
         """
 
         if not type_name:
             if maya.cmds.objExists('{}.curveType'.format(self.get())):
                 type_name = maya.cmds.getAttr('{}.curveType'.format(self.get()))
         if not type_name:
-            maya.logger.warning('Impossible to set curve type because not type name given!')
+            LOGGER.warning('Impossible to set curve type because not type name given!')
             return False
 
         shapes = shape_utils.get_shapes(self.get())
-        color = node_utils.get_rgb_color(shapes[0]) if shapes else 0
-        controls_lib = self._get_controls_lib()
-        control_exists = controls_lib.control_exists(type_name)
+        color = kwargs.pop('color', None)
+        if color:
+            keep_color = False
+        color = color or (node_utils.get_rgb_color(shapes[0]) if shapes else 0)
+
+        control_exists = controllib.control_exists(type_name, controls_path=self._controls_path)
         if not control_exists:
-            maya.logger.warning(
+            LOGGER.warning(
                 'Impossible to set curve type because control library does not contains shape {}'.format(type_name))
             return False
 
-        control_data = controls_lib.get_control_data_by_name(type_name)
-        if not control_data:
-            return False
+        control_size = kwargs.pop('control_size', None)
+        auto_scale = kwargs.pop('auto_scale', True)
+        auto_scale = auto_scale if control_size is None else False
+        controllib.replace_control_curves(
+            self._control, type_name, controls_path=self._controls_path, keep_color=keep_color, color=color,
+            auto_scale=auto_scale, control_size=control_size, **kwargs)
 
-        css = controls_lib.create_control(
-            shape_data=control_data.shapes,
-            target_object=self.get(),
-            color=color
-        )
-        controls_lib.set_shape(self._control, css)
         self.update_shapes()
         string_attr = attr_utils.StringAttribute('curveType')
         string_attr.create(self._control)
@@ -488,13 +546,13 @@ class RigControl(object):
         side = 'C'
         position = maya.cmds.xform(self.get(), query=True, ws=True, t=True)
         if position[0] > 0:
-            color_value = tp.Dcc.get_color_of_side('L', sub)
+            color_value = dcc.get_color_of_side('L', sub)
             side = 'L'
         elif position[0] < 0:
-            color_value = tp.Dcc.get_color_of_side('R', sub)
+            color_value = dcc.get_color_of_side('R', sub)
             side = 'R'
         elif center_tolerance > position[0] > center_tolerance * -1:
-            color_value = tp.Dcc.get_color_of_side('C', sub)
+            color_value = dcc.get_color_of_side('C', sub)
             side = 'C'
 
         if type(color_value) == int or type(color_value) == float:
@@ -504,7 +562,7 @@ class RigControl(object):
 
         return side
 
-    @tp.Dcc.undo_decorator()
+    @dcc.undo_decorator()
     def duplicate(self, delete_shapes=False, copy_scale_tracker=True):
         """
         Duplicates the control generating a new transform parented to the world
@@ -532,19 +590,6 @@ class RigControl(object):
 
         if copy_scale_tracker:
             None
-
-
-    def _get_controls_lib(self):
-        """
-        Internal function that returns control library used to create the control
-        :return:  ControlLib
-        """
-
-        controls_lib = controllib.ControlLib()
-        if self._controls_file and os.path.isfile(self._controls_file):
-            controls_lib.controls_file = self._controls_file
-
-        return controls_lib
 
     def _create(self, tag=True):
         """
@@ -633,8 +678,3 @@ def rename_control(old_name, new_name):
     """
 
     return RigControl(old_name).rename(new_name)
-
-
-def mirror_control(source_control, target_control, mirror_axis='X', keep_color=True):
-
-    remember_selection = maya.cmds.ls(sl=True, long=True)

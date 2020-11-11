@@ -5,11 +5,14 @@
 Module that contains implementation for metarig characters for Maya
 """
 
-import tpDcc as tp
+import logging
+
+from tpDcc import dcc
 from tpDcc.dccs.maya.meta import metanode, metautils
 
-import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import mixin
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
@@ -306,14 +309,14 @@ class RigCharacter(metanode.MetaNode, mixin.CoreMixin):
         rig_group_name = self._get_name(self.rig_group_name, 'rig_group', node_type='group')
         geometry_group = self._get_name(self.geometry_group_name, 'geometry_group', node_type='group')
 
-        if tp.Dcc.object_exists(main_group_name):
-            tpRigToolkit.logger.warning('Group "main_group" already exists in current scene!')
+        if dcc.node_exists(main_group_name):
+            LOGGER.warning('Group "main_group" already exists in current scene!')
             return False
-        if tp.Dcc.object_exists(rig_group_name):
-            tpRigToolkit.logger.warning('Group "rig_group" already exists in current scene!')
+        if dcc.node_exists(rig_group_name):
+            LOGGER.warning('Group "rig_group" already exists in current scene!')
             return False
-        if tp.Dcc.object_exists(geometry_group):
-            tpRigToolkit.logger.warning('Group "geometry_group" already exists in current scene!')
+        if dcc.node_exists(geometry_group):
+            LOGGER.warning('Group "geometry_group" already exists in current scene!')
             return False
 
         return True

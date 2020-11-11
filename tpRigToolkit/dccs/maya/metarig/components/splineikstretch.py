@@ -7,10 +7,13 @@ Module that contains rig component to add stretch functionality to already creat
 
 from __future__ import print_function, division, absolute_import
 
+import logging
+
 from tpDcc.dccs.maya.core import attribute as attr_utils, ik as ik_utils
 
-import tpRigToolkit
 from tpRigToolkit.dccs.maya.metarig.core import component, mixin
+
+LOGGER = logging.getLogger('tpRigToolkit-dccs-maya')
 
 
 class SplineIkStretch(component.RigComponent, mixin.JointMixin):
@@ -32,16 +35,16 @@ class SplineIkStretch(component.RigComponent, mixin.JointMixin):
         super(SplineIkStretch, self).create()
 
         if not self.ik_curve:
-            tpRigToolkit.logger.warning('Impossible to create spline ik stretch setup because no ik curve is defined!')
+            LOGGER.warning('Impossible to create spline ik stretch setup because no ik curve is defined!')
             return
 
         if not self.stretch_attribute_control:
-            tpRigToolkit.logger.warning('Impossible to create spline ik stretch setup because no control is defined!')
+            LOGGER.warning('Impossible to create spline ik stretch setup because no control is defined!')
             return
 
         joints = self.get_joints(as_meta=False)
         if not joints:
-            tpRigToolkit.logger.warning('Impossible to create spline ik stretch setup because no joints are defined!')
+            LOGGER.warning('Impossible to create spline ik stretch setup because no joints are defined!')
             return
 
         attr_utils.create_title(self.stretch_attribute_control.meta_node, self.stretch_attribute_name)
